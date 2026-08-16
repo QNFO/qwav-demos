@@ -88,3 +88,9 @@ M(5,5) as 3.2 before the fix).
   (engine, defaults, per-p golden values, slider, grid toggle, reset, zero
   console errors, mobile 375px no-overflow, desktop + mobile screenshots).
 - Last test run: 2026-08-16 — all pass (localhost and deployed URL).
+
+## Screenshots
+
+![Desktop](screenshots/desktop.png)
+
+![Mobile](screenshots/mobile.png)
