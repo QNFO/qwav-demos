@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monna Map Perspective Renderer — UMP.010 C5</title>
+<style>
+  :root { --bg:#ffffff; --panel:#fafafa; --ink:#1a1a1a; --muted:#5f6368;
+          --accent:#1a73e8; --accent-soft:#e8f0fe; --pass:#188038; --fail:#d93025;
+          --border:#dadce0; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+         font:16px/1.5 -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+  h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 20px 16px 60px; }
+  header h1 { margin: 0 0 4px; font-size: 26px; }
+  .claim { color: var(--muted); margin: 0 0 16px; max-width: 70ch; }
+  .card { background: var(--panel); border: 1px solid var(--border);
+          border-radius: 10px; padding: 14px 16px; margin: 14px 0; }
+  .controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .ctl { display: flex; align-items: center; gap: 6px; }
+  .ctl label { font-weight: 600; font-size: 14px; }
+  button { font: 600 14px/1 inherit; padding: 7px 14px; border-radius: 8px;
+           border: 1px solid var(--border); background: var(--bg); cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  input[type=range] { width: 180px; }
+  input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
+  .panes { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 760px) { .panes { grid-template-columns: 1fr; } }
+  .pane { position: relative; }
+  .pane h3 { margin: 0 0 6px; font-size: 17px; }
+  .pane .tag { font-size: 12px; color: var(--muted); }
+  canvas { width: 100%; height: 300px; background: #fff; border: 1px solid var(--border);
+           border-radius: 8px; display: block; }
+  .status { position: absolute; left: 10px; bottom: 10px; background: rgba(255,255,255,.92);
+            border: 1px solid var(--border); border-radius: 6px; padding: 3px 8px;
+            font-size: 12px; color: var(--muted); pointer-events: none; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { border: 1px solid var(--border); padding: 4px 8px; text-align: right; }
+  th:first-child, td:first-child { text-align: left; }
+  .pass { color: var(--pass); font-weight: 700; }
+  .fail { color: var(--fail); font-weight: 700; }
+  details { margin-top: 8px; }
+  summary { cursor: pointer; font-weight: 600; }
+  .legend { display: flex; gap: 16px; font-size: 13px; color: var(--muted); margin-top: 8px; }
+  .legend .sw { display: inline-block; width: 12px; height: 12px; border-radius: 50%;
+                vertical-align: -1px; margin-right: 4px; }
+  .insight { border-left: 4px solid var(--accent); padding: 8px 12px; background: var(--accent-soft);
+             border-radius: 0 8px 8px 0; }
+  .tip { cursor: help; border-bottom: 1px dotted var(--muted); }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 20px; }
+  .grid > * { min-width: 0; } /* grid items must shrink below their min-content (tables) */
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+  .tbl-wrap { overflow-x: auto; }
+  footer { margin-top: 24px; font-size: 12px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Monna Map Perspective Renderer</h1>
+    <p class="claim">A discrete p-adic world, rendered through the Monna map, looks exactly like our smooth
+      Euclidean world — the underdetermination theorem of UMP.010 in motion (naive direct reading: falsified, C3).</p>
+  </header>
+
+  <div class="card controls" role="group" aria-label="controls">
+    <span class="ctl tip" title="Choose the prime p of the p-adic substrate">Prime p:
+      <button id="btn-p2" class="pbtn" data-p="2">p = 2</button>
+      <button id="btn-p3" class="pbtn active" data-p="3">p = 3</button>
+      <button id="btn-p5" class="pbtn" data-p="5">p = 5</button>
+    </span>
+    <span class="ctl tip" title="Number of p-adic layers along the line of sight (objects at x = p^0 … p^n)">Depth n:
+      <input id="depth" type="range" min="1" max="8" value="5">
+      <span id="depth-val">5</span>
+    </span>
+    <span class="ctl tip" title="Show the rendered 2D grid (all points (i,j) with 0 <= i,j < p^n, mapped by M)">2D grid:
+      <input id="grid-toggle" type="checkbox">
+    </span>
+    <button id="reset" class="tip" title="Restore defaults (p=3, n=5, grid off)">Reset</button>
+  </div>
+
+  <div class="panes">
+    <div class="pane">
+      <h3>Naive — direct ultrametric reading <span class="tag">(C3: FALSIFIED by ordinary vision)</span></h3>
+      <canvas id="cv-naive" width="1000" height="500"></canvas>
+      <div class="status" id="st-naive">naive: size = 1/|x|_p — discrete staircase</div>
+    </div>
+    <div class="pane">
+      <h3>Rendered — through the Monna map <span class="tag">(M : Q_p → R, the interface)</span></h3>
+      <canvas id="cv-rend" width="1000" height="500"></canvas>
+      <div class="status" id="st-rend">rendered: size ∝ 1/(1 + M(x)) — smooth</div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span><span class="sw" style="background:#1a73e8"></span>object at p-adic x = p^k</span>
+    <span><span class="sw" style="background:#d93025"></span>naive size (jumps by p)</span>
+    <span><span class="sw" style="background:#188038"></span>rendered size (smooth)</span>
+  </div>
+
+  <div class="card">
+    <h3>Readouts <span class="tag">(k = exponent; x_k = p^k)</span></h3>
+    <div class="grid">
+      <div class="tbl-wrap"><table id="tbl-row">
+        <thead><tr><th>k</th><th>x_k</th><th>|x_k|_p</th><th>naive size</th><th>M(x_k)</th><th>rendered size</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+      <div>
+        <h3>Golden-value gate (verifyMath)</h3>
+        <div class="tbl-wrap"><table id="tbl-golden">
+          <thead><tr><th>Identity</th><th>Expected</th><th>Computed</th><th>Verdict</th></tr></thead>
+          <tbody></tbody>
+        </table></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card insight">
+    <strong>Key insight.</strong> The naive ultrametric reading predicts apparent sizes that jump by a factor of p —
+    ordinary vision falsifies it (C3). The rendering reading sends the same p-adic scene through the Monna map
+    M(x) = Σ a<sub>k</sub>p<sup>−k</sup>; the resulting image is smooth, with a vanishing point — indistinguishable
+    from Euclidean perspective. Same world, two metrics; perception measures the interface, not the substrate (§5, UMP.010).
+    <br>How to verify yourself: switch p and n and watch the naive staircase jump while the rendered row stays smooth;
+    the golden-value gate re-checks the paper's identities (M(−1) = p, M(−p<sup>m</sup>) = p<sup>−m+1</sup>, …).
+  </div>
+
+  <details class="card">
+    <summary>How to use</summary>
+    <ul>
+      <li><strong>Prime p</strong> — the substrate prime (2, 3, or 5); all math is re-derived in base p.</li>
+      <li><strong>Depth n</strong> — objects at p-adic positions x = p^0 … p^n along the line of sight.</li>
+      <li><strong>2D grid</strong> — render all grid points (i, j) with 0 ≤ i, j &lt; p^n through M onto the right canvas.</li>
+      <li><strong>Reset</strong> — back to p = 3, n = 5, grid off.</li>
+      <li>Golden values re-run on every change; any FAIL blocks the "verified" claim.</li>
+    </ul>
+  </details>
+
+  <footer>
+    Source: <a href="https://zenodo.org/records/21969784">10.5281/zenodo.21969784</a> — Non-Archimedean Projective
+    Perspective (QNFO.UMP.010, v0.2) · WBS C5 worked demo · single-file HTML, zero dependencies, deterministic.
+  </footer>
+</div>
+
+<script>
+"use strict";
+/* ============ ENGINE (pure computation, no DOM) ============ */
+function pAdicDigits(x, p, K) {
+  // digits d_0..d_{K-1} of x in Q_p.
+  // x >= 0: repeated division (exact integers). x < 0: borrow-based complement
+  // (digit_k(-a) = (p - a_k - borrow) mod p) — avoids huge-mod arithmetic that
+  // loses small x when p^K exceeds 2^53 (verified bug: M(1,5)=0, M(5,5)=3.2).
+  var d = [];
+  if (x >= 0) {
+    var t = x;
+    for (var k = 0; k < K; k++) { d.push(t % p); t = Math.floor(t / p); }
+  } else {
+    var a = -x, carry = 0;
+    for (var k = 0; k < K; k++) {
+      var ak = a % p;
+      a = Math.floor(a / p);
+      d.push((p - ak - carry + p) % p);
+      carry = (ak + carry > 0) ? 1 : 0;
+    }
+  }
+  return d;
+}
+function monnaRational(x, p, K) {
+  // M(x) = sum_k d_k p^{-k} as an exact fraction {num, den}
+  K = K || 24;
+  var d = pAdicDigits(x, p, K);
+  var num = 0, den = 1;
+  for (var k = 0; k < K; k++) {
+    var pk = Math.pow(p, k);
+    num = num * pk + d[k] * den;
+    den = den * pk;
+  }
+  return { num: num, den: den, value: num / den };
+}
+function naiveSize(k, p, n) {
+  // 1/|p^k|_p = p^k, normalized by the max for drawing; raw value returned separately
+  return { raw: Math.pow(p, k), norm: Math.pow(p, k - n) };
+}
+function renderedSize(k, p) {
+  // r_k = M(p^k) = p^{-k}; size ∝ 1/(1 + r_k)
+  var r = monnaRational(Math.pow(p, k), p).value;
+  return { r: r, size: 1 / (1 + r) };
+}
+function gridPoints(n, p) {
+  // all (i, j), 0 <= i,j < p^g with g = min(n, 4) (render-cap: 5^4 = 625 points max)
+  var g = Math.min(n, 4), N = Math.pow(p, g), pts = [];
+  for (var i = 0; i < N; i++) for (var j = 0; j < N; j++)
+    pts.push({ x: monnaRational(i, p).value, y: monnaRational(j, p).value });
+  return pts;
+}
+function verifyMath(p, n) {
+  // GOLDEN VALUES from the paper (UMP.010 §3-§4).
+  // Tolerance 1e-6 covers the K=24 truncation bound p^{1-K} (worst p=2: 2^-23 ~ 1.2e-7).
+  var T = 1e-6;
+  var tests = [
+    ["M(1) = 1", 1, monnaRational(1, p).value],
+    ["M(p) = 1/p", 1 / p, monnaRational(p, p).value],
+    ["M(p^2) = 1/p^2", 1 / (p * p), monnaRational(p * p, p).value],
+    ["M(-1) = p", p, monnaRational(-1, p).value],
+    ["M(-p^2) = 1/p", 1 / p, monnaRational(-p * p, p).value],
+    ["M(1+p) = 1 + 1/p", 1 + 1 / p, monnaRational(1 + p, p).value],
+    ["naive ratio p^{k+1}/p^k = p", p, naiveSize(2, p, 8).raw / naiveSize(1, p, 8).raw],
+  ];
+  var res = tests.map(function (t) {
+    return { name: t[0], exp: t[1], got: t[2],
+             pass: Math.abs(t[2] - t[1]) <= T * Math.max(1, Math.abs(t[1])) };
+  });
+  // rendered smoothness: no p-fold jumps (ratio strictly < p for consecutive k)
+  var smooth = true;
+  for (var k = 0; k < n; k++) {
+    var a = renderedSize(k, p).size, b = renderedSize(k + 1, p).size;
+    if (a > 0 && b / a > p - 1e-9) smooth = false;
+  }
+  res.push({ name: "rendered smooth (no p-fold jumps, k=0..n)", exp: true, got: smooth, pass: smooth });
+  return res;
+}
+
+/* ============ PARAMS + DRAW ============ */
+var params = { p: 3, n: 5, grid: false };
+
+function drawNaive(cv, p, n) {
+  var ctx = cv.getContext("2d"), W = cv.width, H = cv.height;
+  var dpr = Math.min(window.devicePixelRatio || 1, 2);
+  cv.width = W * dpr; cv.height = H * dpr; ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+  var cx = W / 2, cy = H / 2, R = 110;
+  for (var k = 0; k <= n; k++) {
+    var s = naiveSize(k, p, n);
+    var r = Math.max(4, s.norm * R);
+    var x = cx + (k - n / 2) * (W * 0.72 / Math.max(2, n));
+    ctx.beginPath(); ctx.arc(x, cy, r, 0, 6.2832);
+    ctx.fillStyle = "#d93025"; ctx.globalAlpha = 0.75; ctx.fill();
+    ctx.globalAlpha = 1; ctx.strokeStyle = "#d93025"; ctx.stroke();
+    ctx.fillStyle = "#1a1a1a"; ctx.font = "12px sans-serif"; ctx.textAlign = "center";
+    ctx.fillText("p^" + k, x, cy + r + 16);
+  }
+}
+function drawRendered(cv, p, n, grid) {
+  var ctx = cv.getContext("2d"), W = cv.width, H = cv.height;
+  var dpr = Math.min(window.devicePixelRatio || 1, 2);
+  cv.width = W * dpr; cv.height = H * dpr; ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+  if (grid) {
+    var pts = gridPoints(n, p);
+    var maxM = p * 1.05; // M(i) <= p for digits <= p-1 (safe upper bound)
+    for (var g = 0; g < pts.length; g++) {
+      var px = W * 0.15 + (pts[g].x / maxM) * W * 0.7;
+      var py = H * 0.75 - (pts[g].y / maxM) * H * 0.62;
+      var r = Math.max(1.6, 26 / (1 + pts[g].x + pts[g].y));
+      ctx.beginPath(); ctx.arc(px, py, r, 0, 6.2832);
+      ctx.fillStyle = "#1a73e8"; ctx.globalAlpha = 0.8; ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+  var cx = W / 2, cy = H * 0.68, R = 110;
+  for (var k = 0; k <= n; k++) {
+    var sz = renderedSize(k, p);
+    var r2 = Math.max(4, R * sz.size * (p > 3 ? 1.6 : 1.4));
+    var x = cx + (k - n / 2) * (W * 0.72 / Math.max(2, n));
+    ctx.beginPath(); ctx.arc(x, cy, r2, 0, 6.2832);
+    ctx.fillStyle = "#188038"; ctx.globalAlpha = 0.8; ctx.fill();
+    ctx.globalAlpha = 1; ctx.strokeStyle = "#188038"; ctx.stroke();
+    ctx.fillStyle = "#1a1a1a"; ctx.font = "12px sans-serif"; ctx.textAlign = "center";
+    ctx.fillText("p^" + k, x, cy + r2 + 16);
+  }
+}
+function drawAll() {
+  drawNaive(document.getElementById("cv-naive"), params.p, params.n);
+  drawRendered(document.getElementById("cv-rend"), params.p, params.n, params.grid);
+  fillReadouts(); fillGolden();
+  console.log("params snapshot", JSON.stringify(params));
+}
+function fillReadouts() {
+  var tb = document.querySelector("#tbl-row tbody");
+  tb.innerHTML = "";
+  for (var k = 0; k <= params.n; k++) {
+    var xk = Math.pow(params.p, k);
+    var abs = 1 / xk;
+    var ns = naiveSize(k, params.p, params.n).raw;
+    var mr = monnaRational(xk, params.p);
+    var rs = renderedSize(k, params.p).size;
+    var tr = document.createElement("tr");
+    tr.innerHTML = "<td>" + k + "</td><td>p^" + k + "</td><td>" + abs.toFixed(4) +
+      "</td><td>" + ns.toExponential(2) + "</td><td>" + mr.value.toFixed(5) +
+      "</td><td>" + rs.toFixed(4) + "</td>";
+    tb.appendChild(tr);
+  }
+}
+function fillGolden() {
+  var tb = document.querySelector("#tbl-golden tbody");
+  tb.innerHTML = "";
+  var res = verifyMath(params.p, params.n);
+  for (var i = 0; i < res.length; i++) {
+    var tr = document.createElement("tr");
+    var v = res[i].pass ? '<span class="pass">PASS</span>' : '<span class="fail">FAIL</span>';
+    var gotStr = (typeof res[i].got === "number") ? res[i].got.toFixed(6) : String(res[i].got);
+    tr.innerHTML = "<td>" + res[i].name + "</td><td>" + res[i].exp + "</td><td>" +
+      gotStr + "</td><td>" + v + "</td>";
+    tb.appendChild(tr);
+  }
+}
+
+/* ============ CONTROLS ============ */
+function setP(p) {
+  params.p = p;
+  var btns = document.querySelectorAll(".pbtn");
+  for (var i = 0; i < btns.length; i++)
+    btns[i].classList.toggle("active", Number(btns[i].dataset.p) === p);
+  drawAll();
+}
+document.querySelectorAll(".pbtn").forEach(function (b) {
+  b.addEventListener("click", function () { setP(Number(b.dataset.p)); });
+});
+document.getElementById("depth").addEventListener("input", function (e) {
+  params.n = Number(e.target.value);
+  document.getElementById("depth-val").textContent = params.n;
+  drawAll();
+});
+document.getElementById("grid-toggle").addEventListener("change", function (e) {
+  params.grid = e.target.checked;
+  drawAll();
+});
+document.getElementById("reset").addEventListener("click", function () {
+  params.p = 3; params.n = 5; params.grid = false;
+  document.getElementById("depth").value = 5;
+  document.getElementById("depth-val").textContent = "5";
+  document.getElementById("grid-toggle").checked = false;
+  setP(3);
+});
+
+/* ============ EXPOSED FOR TESTS ============ */
+window._demo = {
+  get engine() {
+    return { pAdicDigits: pAdicDigits, monnaRational: monnaRational,
+             naiveSize: naiveSize, renderedSize: renderedSize,
+             gridPoints: gridPoints, verifyMath: verifyMath };
+  },
+  rebuild: function (p) { if (p) setP(p); else drawAll(); },
+  get params() { return params; }
+};
+
+drawAll();
+</script>
+</body>
+</html>
