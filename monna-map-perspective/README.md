@@ -47,7 +47,7 @@ M(5,5) as 3.2 before the fix).
 1. Pick a **prime p** (2, 3, 5) — every number is re-derived in base p.
 2. Drag **Depth n** (1–8) — objects appear at x = p^0 … p^n.
 3. Toggle **2D grid** — the rendered canvas shows the Monna-mapped grid
-   (i, j) for 0 ≤ i, j < p^min(n,4).
+   (i, j) for 0 ≤ i, j < p^g (g = 4/3/2 for p = 2/3/5; ≤ 729 points).
 4. Watch the **naive** canvas jump by p per step while the **rendered** canvas
    stays smooth.
 5. **Reset** returns to p=3, n=5, grid off.
@@ -65,9 +65,9 @@ M(5,5) as 3.2 before the fix).
 ## Reproducibility
 
 - Seed: N/A — the computation is deterministic (no PRNG in the engine).
-- Computation: exact rational arithmetic for M (numerator/denominator
-  recurrence over 24 digits); p-adic digits via repeated division (positive)
-  or borrow complement (negative).
+- Computation: rational-recurrence arithmetic for M (numerator/denominator
+  recurrence over 24 digits; values accurate to ~1e-15 relative, BigInt-verified);
+  p-adic digits via repeated division (positive) or borrow complement (negative).
 - Verification: `node test-engine.mjs` (96 assertions over p ∈ {2,3,5} ×
   n ∈ {1,3,5,8}) and the in-page golden-value gate.
 
@@ -84,7 +84,7 @@ M(5,5) as 3.2 before the fix).
 - Generic functionality gate: `python <skill>/scripts/generic-click-test.py <url>`
   — 4/4 buttons, 1/1 slider change state; canvas non-blank; zero console errors;
   light theme. PASS (localhost + deployed).
-- Demo-specific suite: `python playwright-click-test.py <url>` — 19/19 checks
+- Demo-specific suite: `python playwright-click-test.py <url>` — 20/20 checks
   (engine, defaults, per-p golden values, slider, grid toggle, reset, zero
   console errors, mobile 375px no-overflow, desktop + mobile screenshots).
 - Last test run: 2026-08-16 — all pass (localhost and deployed URL).

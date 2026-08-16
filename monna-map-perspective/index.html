@@ -74,7 +74,7 @@
       <input id="depth" type="range" min="1" max="8" value="5">
       <span id="depth-val">5</span>
     </span>
-    <span class="ctl tip" title="Show the rendered 2D grid (all points (i,j) with 0 <= i,j < p^n, mapped by M)">2D grid:
+    <span class="ctl tip" title="Show the rendered 2D grid (points (i,j) with 0 <= i,j < p^g, g = 4/3/2 for p = 2/3/5; <= 729 points, mapped by M)">2D grid:
       <input id="grid-toggle" type="checkbox">
     </span>
     <button id="reset" class="tip" title="Restore defaults (p=3, n=5, grid off)">Reset</button>
@@ -130,7 +130,7 @@
     <ul>
       <li><strong>Prime p</strong> — the substrate prime (2, 3, or 5); all math is re-derived in base p.</li>
       <li><strong>Depth n</strong> — objects at p-adic positions x = p^0 … p^n along the line of sight.</li>
-      <li><strong>2D grid</strong> — render all grid points (i, j) with 0 ≤ i, j &lt; p^n through M onto the right canvas.</li>
+      <li><strong>2D grid</strong> — render grid points (i, j) with 0 ≤ i, j &lt; p^g (g = 4/3/2 for p = 2/3/5; ≤ 729 points) through M onto the right canvas.</li>
       <li><strong>Reset</strong> — back to p = 3, n = 5, grid off.</li>
       <li>Golden values re-run on every change; any FAIL blocks the "verified" claim.</li>
     </ul>
@@ -146,6 +146,7 @@
 "use strict";
 /* ============ ENGINE (pure computation, no DOM) ============ */
 function pAdicDigits(x, p, K) {
+  K = K || 24;
   // digits d_0..d_{K-1} of x in Q_p.
   // x >= 0: repeated division (exact integers). x < 0: borrow-based complement
   // (digit_k(-a) = (p - a_k - borrow) mod p) — avoids huge-mod arithmetic that
@@ -166,7 +167,9 @@ function pAdicDigits(x, p, K) {
   return d;
 }
 function monnaRational(x, p, K) {
-  // M(x) = sum_k d_k p^{-k} as an exact fraction {num, den}
+  // M(x) = sum_k d_k p^{-k} via a rational recurrence {num, den};
+  // num/den exceeds 2^53 so the pair is IEEE-rounded, but the value is
+  // accurate to ~1e-15 relative (BigInt-verified) — inside the 1e-6 gate
   K = K || 24;
   var d = pAdicDigits(x, p, K);
   var num = 0, den = 1;
@@ -187,8 +190,10 @@ function renderedSize(k, p) {
   return { r: r, size: 1 / (1 + r) };
 }
 function gridPoints(n, p) {
-  // all (i, j), 0 <= i,j < p^g with g = min(n, 4) (render-cap: 5^4 = 625 points max)
-  var g = Math.min(n, 4), N = Math.pow(p, g), pts = [];
+  // (i, j) with 0 <= i,j < p^g; per-prime axis cap keeps N^2 <= 729 arcs
+  // (verified fix: p=5,g=4 gave 390,625 arcs ~ 540 ms; g = 4/3/2 for p = 2/3/5)
+  var g = { 2: 4, 3: 3, 5: 2 }[p] || 2;
+  var N = Math.pow(p, Math.min(n, g)), pts = [];
   for (var i = 0; i < N; i++) for (var j = 0; j < N; j++)
     pts.push({ x: monnaRational(i, p).value, y: monnaRational(j, p).value });
   return pts;
