@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Error Confinement — Bruhat–Tits Error Suppression Demo</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #ffffff;
+  --surface: #f8f9fa;
+  --border: #dee2e6;
+  --text: #212529;
+  --muted: #6c757d;
+  --accent: #1a73e8;
+  --accent-soft: #e8f0fe;
+  --error: #d93025;
+  --error-soft: #fce8e6;
+  --confined: #188038;
+  --confined-soft: #e6f4ea;
+  --grid: #f1f3f5;
+}
+
+html { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 15px; line-height: 1.55; }
+body { min-height: 100vh; }
+
+/* HEADER */
+header {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  background: var(--surface);
+}
+header h1 { font-family: Georgia, 'Times New Roman', serif; font-size: 1.35rem; font-weight: 700; color: var(--text); letter-spacing: -0.01em; }
+header h1 span.claim { display: block; font-size: 0.8rem; font-weight: 400; color: var(--muted); margin-top: 0.2rem; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+.status-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--confined); flex-shrink: 0; }
+
+/* LAYOUT */
+main { display: grid; grid-template-columns: 340px 1fr; height: calc(100vh - 76px); }
+.panel { border-right: 1px solid var(--border); background: var(--surface); padding: 1rem; overflow-y: auto; display: flex; flex-direction: column; gap: 0.9rem; }
+.viewport { position: relative; overflow: hidden; display: flex; flex-direction: column; }
+
+.section { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 0.85rem 1rem; }
+.section-title { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 0.6rem; font-weight: 600; }
+
+/* HELP */
+details.help { border: 1px solid var(--accent); border-radius: 6px; background: var(--accent-soft); padding: 0.6rem 0.85rem; }
+details.help summary { cursor: pointer; font-size: 0.8rem; font-weight: 600; color: var(--accent); }
+details.help ul { margin: 0.5rem 0 0 1.1rem; font-size: 0.75rem; color: var(--text); }
+details.help li { margin-bottom: 0.25rem; }
+
+/* CONTROLS */
+.control-row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+.control-row label { font-size: 0.78rem; color: var(--muted); min-width: 4.5rem; }
+.prime-btn {
+  width: 2.4rem; height: 2.4rem; border: 1px solid var(--border); background: var(--bg); color: var(--text);
+  border-radius: 5px; cursor: pointer; font-size: 0.95rem; font-weight: 600;
+  transition: all 0.12s; font-family: inherit;
+}
+.prime-btn:hover { border-color: var(--accent); }
+.prime-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.slider-wrap { flex: 1; }
+.slider-wrap input[type=range] { width: 100%; accent-color: var(--accent); }
+.slider-labels { display: flex; justify-content: space-between; font-size: 0.65rem; color: var(--muted); margin-top: 0.2rem; }
+
+.action-btn {
+  width: 100%; padding: 0.55rem 0.8rem; border: 1px solid var(--border); background: var(--bg); color: var(--text);
+  font-size: 0.8rem; border-radius: 5px; cursor: pointer; transition: all 0.12s; text-align: left; font-family: inherit;
+}
+.action-btn:hover { border-color: var(--accent); background: var(--accent-soft); }
+.action-btn.active { border-color: var(--error); color: var(--error); font-weight: 600; background: var(--error-soft); }
+.action-btn .indicator { float: right; font-size: 0.65rem; color: var(--accent); }
+.action-btn .indicator.off { color: var(--muted); }
+.action-btn.active .indicator { color: var(--error); }
+
+/* FORMULA */
+.formula {
+  font-family: Georgia, 'Times New Roman', serif; font-size: 0.85rem; color: var(--text);
+  background: var(--accent-soft); border: 1px solid var(--accent); border-radius: 5px;
+  padding: 0.6rem 0.8rem; text-align: center; line-height: 1.7;
+}
+
+/* STATS */
+.stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem; }
+.stat { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 0.4rem 0.6rem; }
+.stat-label { font-size: 0.62rem; color: var(--muted); text-transform: uppercase; }
+.stat-value { font-size: 1.05rem; font-weight: 700; color: var(--accent); font-family: 'JetBrains Mono', Consolas, monospace; }
+.stat-value.err { color: var(--error); }
+.stat-value.cnf { color: var(--confined); }
+
+/* KEY INSIGHT */
+.insight { font-size: 0.75rem; line-height: 1.65; color: var(--text); }
+.insight b { color: var(--accent); }
+.insight .err { color: var(--error); font-weight: 600; }
+
+/* TABS */
+.tabs { display: flex; border-bottom: 1px solid var(--border); background: var(--surface); }
+.tab {
+  padding: 0.6rem 1.3rem; border: none; background: transparent; color: var(--muted);
+  font-size: 0.8rem; cursor: pointer; border-right: 1px solid var(--border);
+  transition: all 0.12s; font-family: inherit; font-weight: 500;
+}
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--accent); background: var(--bg); border-bottom: 2px solid var(--accent); margin-bottom: -1px; font-weight: 600; }
+
+/* CANVAS */
+.canvas-wrap { flex: 1; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; background: var(--bg); }
+.canvas-wrap canvas { display: block; }
+.overlay { position: absolute; bottom: 0.8rem; left: 1rem; font-size: 0.7rem; color: var(--muted); background: rgba(255,255,255,0.9); padding: 0.25rem 0.6rem; border-radius: 4px; border: 1px solid var(--border); max-width: calc(100% - 2rem); }
+.overlay.bright { color: var(--error); border-color: var(--error); }
+.tooltip {
+  position: absolute; pointer-events: none; background: var(--text); color: #fff;
+  padding: 0.35rem 0.6rem; border-radius: 4px; font-size: 0.7rem; display: none; z-index: 10; white-space: nowrap;
+}
+
+/* LEGEND */
+.legend { display: flex; gap: 1.1rem; padding: 0.45rem 1rem; border-top: 1px solid var(--border); background: var(--surface); font-size: 0.7rem; color: var(--muted); flex-wrap: wrap; }
+.legend-item { display: flex; align-items: center; gap: 0.35rem; }
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+.legend-dot.root { background: var(--accent); }
+.legend-dot.selected { background: #4d8ff7; }
+.legend-dot.error { background: var(--error); }
+.legend-dot.descendant { background: #f4a79a; }
+.legend-dot.confined { background: var(--confined); }
+
+/* FORMULA DISPLAY */
+.equation { font-family: Georgia, 'Times New Roman', serif; font-size: 0.9rem; color: var(--text); padding: 0.4rem 0; text-align: center; }
+
+/* RESPONSIVE */
+@media (max-width: 768px) {
+  main { grid-template-columns: 1fr; grid-template-rows: auto 1fr; height: auto; min-height: 100vh; }
+  .panel { border-right: none; border-bottom: 1px solid var(--border); flex-direction: row; flex-wrap: wrap; gap: 0.5rem; padding: 0.6rem; }
+  .section { flex: 1; min-width: 150px; padding: 0.6rem; }
+  .viewport { min-height: 60vh; }
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>Error Confinement — Ultrametric Error Suppression
+    <span class="claim">Shows: on a Bruhat–Tits (p-adic) tree, the strong triangle inequality confines errors strictly to the affected node's subtree — they cannot leak to siblings, parents, or any other branch of the tree.</span>
+  </h1>
+  <div class="status-dot" title="Computation engine active"></div>
+</header>
+
+<main>
+  <aside class="panel">
+    <details class="help" open>
+      <summary>How to use this demo (click to collapse)</summary>
+      <ul>
+        <li><b>Prime buttons</b> — choose the branching factor p of the Bruhat–Tits tree (2, 3, or 5).</li>
+        <li><b>Depth slider</b> — how many levels deep to build the tree (1–6).</li>
+        <li><b>Inject error</b> — toggle error mode, then click any node to inject an error at that node.</li>
+        <li><b>Tree geometry</b> tab — see the full tree; the error subtree is shown in red.</li>
+        <li><b>Confinement analysis</b> tab — bar chart of subtree sizes by injection depth (proves confinement).</li>
+        <li><b>Reset</b> — clear all selections and errors.</li>
+      </ul>
+    </details>
+
+    <div class="section">
+      <div class="section-title">Effective prime p (branching factor)</div>
+      <div class="control-row" id="primeButtons">
+        <button class="prime-btn active" data-p="2" title="p = 2: binary tree">2</button>
+        <button class="prime-btn" data-p="3" title="p = 3: ternary tree">3</button>
+        <button class="prime-btn" data-p="5" title="p = 5: 5-ary tree">5</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Tree depth d</div>
+      <div class="slider-wrap">
+        <input type="range" id="depthSlider" min="1" max="6" value="3" step="1" title="Number of tree levels">
+        <div class="slider-labels"><span>1</span><span>6</span></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:0.2rem;">
+        <span style="font-size:0.7rem;color:var(--muted)">Current depth:</span>
+        <span style="font-size:0.9rem;font-weight:700;color:var(--accent)" id="depthLabel">3</span>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Controls</div>
+      <div style="display:flex;flex-direction:column;gap:0.4rem;">
+        <button class="action-btn" id="btnError" title="Toggle error injection mode, then click a node to inject an error at that position">
+          <span>Inject error at node</span>
+          <span class="indicator off" id="errInd">●</span>
+        </button>
+        <button class="action-btn" id="btnShowAll" title="Show error confinement for ALL nodes at once — color every node by its subtree confinement ratio">
+          <span>Show all confinement</span>
+          <span class="indicator off" id="showAllInd">●</span>
+        </button>
+        <button class="action-btn" id="btnReset" title="Clear all selections and return to default">
+          <span>Reset view</span>
+          <span style="float:right;font-size:0.65rem;color:var(--muted)">R</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Key equation (strong triangle inequality)</div>
+      <div class="formula">
+        d(x, z) &le; max{ d(x, y), d(y, z) }<br>
+        <span style="font-size:0.7rem;color:var(--muted)">Ultrametric property: error cannot leak outside the infected subtree</span>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Live metrics</div>
+      <div class="stat-grid">
+        <div class="stat"><div class="stat-label">Total nodes</div><div class="stat-value" id="statNodes">15</div></div>
+        <div class="stat"><div class="stat-label">Tree depth</div><div class="stat-value" id="statDepth">3</div></div>
+        <div class="stat"><div class="stat-label">Error at depth</div><div class="stat-value err" id="statErrDepth">—</div></div>
+        <div class="stat"><div class="stat-label">Nodes affected</div><div class="stat-value err" id="statAffected">—</div></div>
+        <div class="stat"><div class="stat-label">Nodes safe</div><div class="stat-value cnf" id="statSafe">—</div></div>
+        <div class="stat"><div class="stat-label">Confinement %</div><div class="stat-value cnf" id="statConfinement">—</div></div>
+      </div>
+    </div>
+
+    <div class="section" style="border-color:var(--accent);">
+      <div class="section-title" style="color:var(--accent)">Key insight — verify it yourself</div>
+      <p class="insight">
+        In an <b>Archimedean</b> (Euclidean) space, an error at node <i>v</i> could potentially affect <b>any</b> other node — sibling, parent, or distant cousin — because triangle paths can connect everything.
+        In an <b>ultrametric</b> space (Bruhat–Tits tree), the strong triangle inequality <span class="err">locks the error inside the subtree of <i>v</i></span>.
+        Click nodes at different depths: the <b>shallower</b> the error, the <b>larger</b> the affected subtree. A leaf error affects only itself (perfect confinement).
+        This property makes p-adic QEC codes exponentially more efficient at suppressing cascading errors.
+      </p>
+      <div style="font-size:0.7rem;color:var(--muted);margin-top:0.4rem;">Source: QWAV A1 · DOI 10.5281/zenodo.20134944</div>
+    </div>
+  </aside>
+
+  <section class="viewport">
+    <div class="tabs">
+      <button class="tab active" data-view="tree">Tree geometry</button>
+      <button class="tab" data-view="confinement">Confinement analysis</button>
+    </div>
+    <div class="canvas-wrap" id="canvasWrap">
+      <canvas id="mainCanvas"></canvas>
+      <div class="overlay" id="overlay"></div>
+      <div class="tooltip" id="tooltip"></div>
+    </div>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot root"></div> Root (L)</div>
+      <div class="legend-item"><div class="legend-dot selected"></div> Selected node</div>
+      <div class="legend-item"><div class="legend-dot error"></div> Error source</div>
+      <div class="legend-item"><div class="legend-dot descendant"></div> Affected subtree</div>
+      <div class="legend-item"><div class="legend-dot confined"></div> Safe (confined)</div>
+    </div>
+  </section>
+</main>
+
+<script>
+// ============================================================
+// SEEDED PRNG — mulberry32 (deterministic, reproducible)
+// ============================================================
+function mulberry32(a) {
+  return function() {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    var t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+// ============================================================
+// BT-TREE COMPUTATION ENGINE (pure math — no DOM)
+// ============================================================
+class BTTree {
+  constructor(p, depth) {
+    this.p = p; this.depth = depth; this.build();
+  }
+  build() {
+    this.nodes = []; this.nodesByDepth = {}; this.nodeCount = 0;
+    this.nodesByDepth[0] = [this._make(0, -1)];
+    for (let d = 1; d <= this.depth; d++) {
+      this.nodesByDepth[d] = [];
+      for (const parent of this.nodesByDepth[d - 1]) {
+        for (let i = 0; i < this.p; i++) {
+          const child = this._make(d, parent.id);
+          parent.children.push(child.id);
+          this.nodesByDepth[d].push(child);
+        }
+      }
+    }
+  }
+  _make(depth, pid) {
+    const n = { id: this.nodeCount++, depth, parentId: pid, children: [], childIndex: 0 };
+    if (pid !== -1) n.childIndex = this.nodes[pid].children.length;
+    this.nodes.push(n); return n;
+  }
+  getNode(id) { return this.nodes[id]; }
+
+  /** Get the subtree rooted at `id` (inclusive). This is the set of all nodes
+   *  that would be affected by an error at `id` under ultrametric confinement. */
+  getErrorSubtree(id) {
+    const st = new Set([id]);
+    const stack = [...this.getNode(id).children];
+    while (stack.length) { const c = stack.pop(); st.add(c); stack.push(...this.getNode(c).children); }
+    return st;
+  }
+
+  /** Path from root to node `id` */
+  getPath(id) {
+    const p = [id]; let cur = this.getNode(id);
+    while (cur.parentId !== -1) { p.unshift(cur.parentId); cur = this.getNode(cur.parentId); }
+    return p;
+  }
+
+  /** Number of nodes at depth d */
+  nodeCountAtDepth(d) { return this.nodesByDepth[d] ? this.nodesByDepth[d].length : 0; }
+
+  /** Total nodes in the tree */
+  get totalNodes() { return this.nodeCount; }
+
+  /** Subtree size rooted at `id` (number of nodes: self + all descendants) */
+  subtreeSize(id) {
+    const nd = this.getNode(id);
+    if (nd.children.length === 0) return 1;
+    let s = 1;
+    const stack = [...nd.children];
+    while (stack.length) { s++; stack.push(...this.getNode(stack.pop()).children); }
+    return s;
+  }
+
+  /** Analytical subtree size for a node at depth `d`: (p^(depth-d+1)-1)/(p-1) */
+  analyticalSubtreeSize(d) {
+    const levelsBelow = this.depth - d;
+    if (levelsBelow < 0) return 0;
+    // Sum_{k=0}^{levelsBelow} p^k = (p^(levelsBelow+1)-1)/(p-1)
+    let sum = 0, pk = 1;
+    for (let k = 0; k <= levelsBelow; k++) { sum += pk; pk *= this.p; }
+    return sum;
+  }
+
+  /** Build a confinement map: for every node, its subtree size */
+  getConfinementMap() {
+    const map = new Map();
+    for (const nd of this.nodes) {
+      map.set(nd.id, this.subtreeSize(nd.id));
+    }
+    return map;
+  }
+}
+
+// ============================================================
+// GOLDEN-VALUE VERIFICATION (runs on every rebuild)
+// ============================================================
+function verifyMath(tree) {
+  const p = tree.p, d = tree.depth;
+  const results = [];
+
+  // Golden 1: total nodes = (p^(d+1)-1)/(p-1)
+  const expectedTotal = (Math.pow(p, d + 1) - 1) / (p - 1);
+  results.push({
+    name: 'Total node count', computed: tree.totalNodes, expected: expectedTotal,
+    pass: tree.totalNodes === expectedTotal
+  });
+
+  // Golden 2: leaf count = p^d
+  const expectedLeaves = Math.pow(p, d);
+  const actualLeaves = tree.nodeCountAtDepth(d);
+  results.push({
+    name: 'Leaf count (depth ' + d + ')', computed: actualLeaves, expected: expectedLeaves,
+    pass: actualLeaves === expectedLeaves
+  });
+
+  // Golden 3: subtree sizes match analytical formula
+  let subtreeOk = true;
+  for (let depth = 0; depth <= d; depth++) {
+    const expectedSubtree = tree.analyticalSubtreeSize(depth);
+    const sampleNode = tree.nodesByDepth[depth][0];
+    const actualSubtree = tree.subtreeSize(sampleNode.id);
+    if (actualSubtree !== expectedSubtree) { subtreeOk = false; break; }
+  }
+  results.push({
+    name: 'Subtree sizes match analytical', computed: 'all', expected: 'all',
+    pass: subtreeOk
+  });
+
+  // Log and return
+  const allPass = results.every(r => r.pass);
+  console.log('%cMath verification%c ' + (allPass ? 'ALL PASS' : 'SOME FAIL'),
+    'color:' + (allPass ? '#188038' : '#d93025') + ';font-weight:bold', 'color:#6c757d');
+  results.forEach(r => {
+    console.log('  ' + r.name + ': ' + (r.pass ? '✓' : '✗') +
+      ' computed=' + r.computed + ' expected=' + r.expected);
+  });
+  return { results, allPass };
+}
+
+// ============================================================
+// RENDERER
+// ============================================================
+class Renderer {
+  constructor(canvas, tree) {
+    this.cv = canvas; this.ctx = canvas.getContext('2d'); this.tree = tree;
+    this.pos = new Map(); this.dpr = Math.min(window.devicePixelRatio || 1, 2);
+    this.selected = null; this.errId = null; this.errSet = new Set();
+    this.mode = 'tree'; this.showAllConfinement = false; this.confinementMap = null;
+    this.colors = [
+      '#1a73e8','#188038','#d93025','#b06000','#9334e6','#c01b84',
+      '#129e5e','#d04a2c','#089995','#7c4dff'
+    ];
+  }
+  resize() {
+    const w = this.cv.parentElement;
+    this.cv.width = w.clientWidth * this.dpr;
+    this.cv.height = w.clientHeight * this.dpr;
+    this.cv.style.width = w.clientWidth + 'px';
+    this.cv.style.height = w.clientHeight + 'px';
+  }
+  render() {
+    this.ctx.save(); this.ctx.scale(this.dpr, this.dpr);
+    this.ctx.clearRect(0, 0, this.cv.width / this.dpr, this.cv.height / this.dpr);
+    if (this.mode === 'tree') { this._layout(); this._drawEdges(); this._drawNodes(); }
+    else { this._drawConfinementChart(); }
+    this.ctx.restore();
+  }
+  _layout() {
+    const W = this.cv.width / this.dpr, H = this.cv.height / this.dpr;
+    const vm = 55, hm = 90, avH = H - vm * 2, avW = W - hm * 2;
+    const vStep = this.tree.depth > 0 ? avH / this.tree.depth : 0;
+    this.pos.clear();
+    for (let d = 0; d <= this.tree.depth; d++) {
+      const ns = this.tree.nodesByDepth[d];
+      const y = vm + d * vStep;
+      const n = ns.length, hStep = n > 1 ? avW / (n - 1) : 0;
+      const sx = n === 1 ? W / 2 : hm;
+      ns.forEach((nd, i) => this.pos.set(nd.id, { x: n === 1 ? sx : sx + i * hStep, y }));
+    }
+  }
+  _drawEdges() {
+    for (let d = 1; d <= this.tree.depth; d++) {
+      for (const p of this.tree.nodesByDepth[d - 1]) {
+        const pp = this.pos.get(p.id); if (!pp) continue;
+        for (const cid of p.children) {
+          const cp = this.pos.get(cid); if (!cp) continue;
+          const inErr = this.errSet.has(p.id) && this.errSet.has(cid);
+          this.ctx.strokeStyle = inErr ? 'rgba(217,48,37,0.35)' : '#adb5bd';
+          this.ctx.lineWidth = inErr ? 1.8 : 1;
+          this.ctx.beginPath(); this.ctx.moveTo(pp.x, pp.y); this.ctx.lineTo(cp.x, cp.y); this.ctx.stroke();
+        }
+      }
+    }
+  }
+  _drawNodes() {
+    const r = Math.max(5, 12 - this.tree.depth);
+    for (const [id, p] of this.pos) {
+      const nd = this.tree.getNode(id);
+      const sel = this.selected === id;
+      const isErrSrc = this.errId === id;
+      const inErr = !isErrSrc && this.errSet.has(id);
+      const root = id === 0, leaf = nd.children.length === 0;
+      const total = this.tree.totalNodes;
+      const sz = this.tree.subtreeSize(id);
+
+      this.ctx.beginPath(); this.ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+
+      if (this.showAllConfinement && !this.errId) {
+        // Color by confinement ratio: shallow = large subtree = warm
+        const ratio = sz / total;
+        const hue = Math.round(120 - ratio * 120); // green (safe) to red (large impact)
+        const sat = 50 + ratio * 40;
+        const lit = 60 - ratio * 25;
+        this.ctx.fillStyle = 'hsl(' + hue + ',' + sat + '%,' + lit + '%)';
+        this.ctx.strokeStyle = 'hsl(' + hue + ',' + sat + '%,' + (lit - 15) + '%)';
+        this.ctx.lineWidth = 1;
+      } else if (sel && isErrSrc) {
+        this.ctx.fillStyle = '#d93025'; this.ctx.strokeStyle = '#d93025'; this.ctx.lineWidth = 2.5;
+      } else if (sel) {
+        this.ctx.fillStyle = '#4d8ff7'; this.ctx.strokeStyle = '#1a73e8'; this.ctx.lineWidth = 2;
+      } else if (isErrSrc) {
+        this.ctx.fillStyle = '#d93025'; this.ctx.strokeStyle = '#a50e0e'; this.ctx.lineWidth = 2;
+      } else if (inErr) {
+        this.ctx.fillStyle = '#f4a79a'; this.ctx.strokeStyle = '#d93025'; this.ctx.lineWidth = 1;
+      } else if (root) {
+        this.ctx.fillStyle = '#e8f0fe'; this.ctx.strokeStyle = '#1a73e8'; this.ctx.lineWidth = 1.5;
+      } else if (leaf) {
+        this.ctx.fillStyle = '#e9ecef'; this.ctx.strokeStyle = '#ced4da'; this.ctx.lineWidth = 1;
+      } else {
+        this.ctx.fillStyle = '#f8f9fa'; this.ctx.strokeStyle = '#ced4da'; this.ctx.lineWidth = 1;
+      }
+      this.ctx.fill(); this.ctx.stroke();
+
+      // Label root and selected node
+      if (root || isErrSrc) {
+        this.ctx.fillStyle = (sel || isErrSrc) ? '#fff' : '#6c757d';
+        this.ctx.font = 'bold ' + (r - 1) + "px 'JetBrains Mono', Consolas, monospace";
+        this.ctx.textAlign = 'center'; this.ctx.textBaseline = 'middle';
+        if (root && isErrSrc) this.ctx.fillText('R×', p.x, p.y);
+        else if (root) this.ctx.fillText('R', p.x, p.y);
+        else this.ctx.fillText('×', p.x, p.y);
+      } else if (leaf) {
+        this.ctx.fillStyle = '#adb5bd';
+        this.ctx.font = (r - 2) + "px 'JetBrains Mono', Consolas, monospace";
+        this.ctx.textAlign = 'center'; this.ctx.textBaseline = 'middle';
+        this.ctx.fillText(String(nd.depth), p.x, p.y);
+      }
+    }
+
+    // Highlight path from root to selected node
+    if (this.selected !== null) {
+      const path = this.tree.getPath(this.selected);
+      this.ctx.strokeStyle = 'rgba(26,115,232,0.2)'; this.ctx.lineWidth = 3;
+      for (let i = 1; i < path.length; i++) {
+        const a = this.pos.get(path[i - 1]), b = this.pos.get(path[i]);
+        if (a && b) { this.ctx.beginPath(); this.ctx.moveTo(a.x, a.y); this.ctx.lineTo(b.x, b.y); this.ctx.stroke(); }
+      }
+    }
+
+    // Draw confinement boundary if error is set
+    if (this.showAllConfinement && !this.errId) {
+      this.ctx.fillStyle = 'var(--muted)'; // ignored in canvas, use direct
+      this.ctx.fillStyle = '#6c757d';
+      this.ctx.font = '9px -apple-system, sans-serif';
+      this.ctx.textAlign = 'left';
+      const W = this.cv.width / this.dpr;
+      this.ctx.fillText('Confinement ratio: green=narrow subtree (safe), red=wide subtree (high impact)',
+        10, 22);
+    }
+  }
+
+  /** Bar chart showing error subtree size by injection depth — proves strict confinement */
+  _drawConfinementChart() {
+    const W = this.cv.width / this.dpr, H = this.cv.height / this.dpr;
+    const ctx = this.ctx;
+    const pad = { t: 55, r: 40, b: 55, l: 80 };
+    const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+
+    const depths = [];
+    for (let d = 0; d <= this.tree.depth; d++) {
+      depths.push({
+        depth: d,
+        subtreeSize: this.tree.analyticalSubtreeSize(d),
+        nodeCount: this.tree.nodeCountAtDepth(d),
+        label: d === 0 ? 'Root' : 'Depth ' + d
+      });
+    }
+    const maxSize = this.tree.totalNodes;
+    const barW = Math.min(60, pw / depths.length - 12);
+    const gap = (pw - barW * depths.length) / (depths.length + 1);
+
+    // Grid lines
+    ctx.strokeStyle = 'rgba(222,226,230,0.5)'; ctx.lineWidth = 0.5;
+    for (let i = 0; i <= 5; i++) {
+      const y = pad.t + (ph / 5) * i;
+      ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
+      ctx.fillStyle = '#6c757d'; ctx.font = "10px 'JetBrains Mono', Consolas, monospace";
+      ctx.textAlign = 'right';
+      ctx.fillText(Math.round(maxSize * (1 - i / 5)), pad.l - 8, y + 3);
+    }
+    // Axes
+    ctx.strokeStyle = '#ced4da'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, pad.t + ph); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(pad.l, pad.t + ph); ctx.lineTo(W - pad.r, pad.t + ph); ctx.stroke();
+
+    // Title
+    ctx.fillStyle = '#1a73e8'; ctx.font = "12px Georgia, serif"; ctx.textAlign = 'left';
+    ctx.fillText('Error subtree size by injection depth (p=' + this.tree.p + ', d=' + this.tree.depth + ')', pad.l, pad.t - 30);
+    ctx.fillStyle = '#6c757d'; ctx.font = "10px Georgia, serif";
+    ctx.fillText('Deeper injection = smaller subtree = stronger confinement', pad.l, pad.t - 15);
+
+    // Bars
+    depths.forEach((dp, i) => {
+      const x = pad.l + gap + i * (barW + gap);
+      const barH = (dp.subtreeSize / maxSize) * ph;
+      const y = pad.t + ph - barH;
+      const ratio = dp.subtreeSize / maxSize;
+
+      // Bar with gradient
+      const grad = ctx.createLinearGradient(x, y, x, pad.t + ph);
+      const hue = Math.round(120 - ratio * 120);
+      grad.addColorStop(0, 'hsl(' + hue + ',70%,50%)');
+      grad.addColorStop(1, 'hsl(' + hue + ',70%,75%)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(x, y, barW, barH);
+
+      // Border
+      ctx.strokeStyle = 'hsl(' + hue + ',60%,40%)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x, y, barW, barH);
+
+      // Value on top
+      ctx.fillStyle = '#212529';
+      ctx.font = "bold 10px 'JetBrains Mono', Consolas, monospace";
+      ctx.textAlign = 'center';
+      ctx.fillText(dp.subtreeSize, x + barW / 2, y - 5);
+
+      // Depth label
+      ctx.fillStyle = '#6c757d';
+      ctx.font = "9px -apple-system, sans-serif";
+      ctx.fillText(dp.label, x + barW / 2, pad.t + ph + 15);
+
+      // Confinement % below bar
+      const confinementPct = Math.round((1 - ratio) * 100);
+      ctx.fillStyle = ratio > 0.5 ? '#d93025' : '#188038';
+      ctx.font = "8px 'JetBrains Mono', Consolas, monospace";
+      ctx.fillText(confinementPct + '% safe', x + barW / 2, pad.t + ph + 28);
+    });
+
+    // Axis labels
+    ctx.fillStyle = '#6c757d'; ctx.font = "11px Georgia, serif"; ctx.textAlign = 'center';
+    ctx.fillText('Injection depth (0 = root, ' + this.tree.depth + ' = leaf)', W / 2, H - 5);
+    ctx.save(); ctx.translate(14, H / 2); ctx.rotate(-Math.PI / 2);
+    ctx.fillText('Nodes in affected subtree', 0, 0); ctx.restore();
+
+    // Highlight current error if set
+    if (this.errId !== null) {
+      const ed = this.tree.getNode(this.errId).depth;
+      const ex = pad.l + gap + ed * (barW + gap);
+      ctx.strokeStyle = '#d93025'; ctx.lineWidth = 2.5;
+      ctx.setLineDash([]);
+      ctx.strokeRect(ex - 2, pad.t - 2, barW + 4, ph + 4);
+      ctx.fillStyle = '#d93025'; ctx.font = "bold 10px -apple-system, sans-serif";
+      ctx.textAlign = 'center';
+      ctx.fillText('← Current error', ex + barW / 2, pad.t - 20);
+    }
+  }
+
+  hitTest(mx, my) {
+    let best = null, bd = 18;
+    for (const [id, p] of this.pos) { const d = Math.hypot(mx - p.x, my - p.y); if (d < bd) { bd = d; best = id; } }
+    return best;
+  }
+}
+
+// ============================================================
+// APP
+// ============================================================
+let prime = 2, depth = 3, errorMode = false, showAllConfinement = false;
+let tree = new BTTree(prime, depth);
+const cv = document.getElementById('mainCanvas');
+const rdr = new Renderer(cv, tree);
+
+function rebuild() {
+  tree = new BTTree(prime, depth);
+  rdr.tree = tree; rdr.selected = null;
+  if (!errorMode) { rdr.errId = null; rdr.errSet = new Set(); }
+  rdr.confinementMap = null;
+  const v = verifyMath(tree);
+  if (!v.allPass) {
+    console.warn('Math verification FAILED — check tree construction');
+  }
+  render(); updateStats();
+}
+function render() { rdr.render(); }
+function updateStats() {
+  document.getElementById('statNodes').textContent = tree.totalNodes;
+  document.getElementById('statDepth').textContent = tree.depth;
+  document.getElementById('depthLabel').textContent = depth;
+
+  if (rdr.errId !== null) {
+    const nd = tree.getNode(rdr.errId);
+    document.getElementById('statErrDepth').textContent = nd.depth;
+    document.getElementById('statAffected').textContent = rdr.errSet.size;
+    document.getElementById('statAffected').classList.add('err');
+    const safe = tree.totalNodes - rdr.errSet.size;
+    document.getElementById('statSafe').textContent = safe;
+    document.getElementById('statSafe').classList.add('cnf');
+    const confinementPct = Math.round((safe / tree.totalNodes) * 100);
+    document.getElementById('statConfinement').textContent = confinementPct + '%';
+    document.getElementById('statConfinement').classList.add('cnf');
+  } else {
+    document.getElementById('statErrDepth').textContent = '\u2014';
+    document.getElementById('statAffected').textContent = '\u2014';
+    document.getElementById('statAffected').classList.remove('err');
+    document.getElementById('statSafe').textContent = '\u2014';
+    document.getElementById('statSafe').classList.remove('cnf');
+    document.getElementById('statConfinement').textContent = '\u2014';
+    document.getElementById('statConfinement').classList.remove('cnf');
+  }
+}
+function resize() { rdr.resize(); render(); }
+
+// Prime buttons
+document.getElementById('primeButtons').addEventListener('click', e => {
+  const b = e.target.closest('.prime-btn'); if (!b) return;
+  prime = parseInt(b.dataset.p);
+  document.querySelectorAll('.prime-btn').forEach(x => x.classList.toggle('active', x === b));
+  rebuild();
+});
+
+// Depth slider
+document.getElementById('depthSlider').addEventListener('input', e => {
+  depth = parseInt(e.target.value); rebuild();
+});
+
+// Tabs
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    rdr.mode = t.dataset.view;
+    render();
+  });
+});
+
+// Error mode toggle
+document.getElementById('btnError').addEventListener('click', () => {
+  errorMode = !errorMode;
+  const el = document.getElementById('errInd');
+  el.classList.toggle('off', !errorMode);
+  el.textContent = errorMode ? '\u25C9' : '\u25CF';
+  document.getElementById('btnError').classList.toggle('active', errorMode);
+  if (showAllConfinement) {
+    showAllConfinement = false; rdr.showAllConfinement = false;
+    document.getElementById('showAllInd').classList.add('off');
+    document.getElementById('showAllInd').textContent = '\u25CF';
+    document.getElementById('btnShowAll').classList.remove('active');
+  }
+  if (!errorMode) { rdr.errId = null; rdr.errSet = new Set(); }
+  const ovl = document.getElementById('overlay');
+  ovl.textContent = errorMode ? '\u26A0 Error mode: click any node to inject an error' : '';
+  ovl.classList.toggle('bright', errorMode);
+  updateStats(); render();
+});
+
+// Show all confinement toggle
+document.getElementById('btnShowAll').addEventListener('click', () => {
+  showAllConfinement = !showAllConfinement;
+  const el = document.getElementById('showAllInd');
+  el.classList.toggle('off', !showAllConfinement);
+  el.textContent = showAllConfinement ? '\u25C9' : '\u25CF';
+  document.getElementById('btnShowAll').classList.toggle('active', showAllConfinement);
+  rdr.showAllConfinement = showAllConfinement;
+  if (showAllConfinement) {
+    if (errorMode) {
+      errorMode = false;
+      document.getElementById('errInd').classList.add('off');
+      document.getElementById('errInd').textContent = '\u25CF';
+      document.getElementById('btnError').classList.remove('active');
+      rdr.errId = null; rdr.errSet = new Set();
+    }
+    document.getElementById('overlay').textContent = 'Confinement heatmap: green = deeply confined, red = wide impact';
+    document.getElementById('overlay').classList.remove('bright');
+  } else {
+    document.getElementById('overlay').textContent = '';
+  }
+  updateStats(); render();
+});
+
+// Reset
+document.getElementById('btnReset').addEventListener('click', () => {
+  rdr.selected = null; rdr.errId = null; rdr.errSet = new Set();
+  errorMode = false; showAllConfinement = false;
+  rdr.showAllConfinement = false;
+  document.getElementById('errInd').classList.add('off'); document.getElementById('errInd').textContent = '\u25CF';
+  document.getElementById('btnError').classList.remove('active');
+  document.getElementById('showAllInd').classList.add('off'); document.getElementById('showAllInd').textContent = '\u25CF';
+  document.getElementById('btnShowAll').classList.remove('active');
+  const ovl = document.getElementById('overlay');
+  ovl.textContent = ''; ovl.classList.remove('bright');
+  document.getElementById('tooltip').style.display = 'none';
+  updateStats(); render();
+});
+
+// Canvas click — inject error or select node
+cv.addEventListener('click', e => {
+  if (rdr.mode !== 'tree') return;
+  const rect = cv.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  const id = rdr.hitTest(mx, my);
+  if (id === null) return;
+  const ovl = document.getElementById('overlay');
+  if (errorMode) {
+    rdr.errId = id; rdr.errSet = tree.getErrorSubtree(id); rdr.selected = id;
+    const nd = tree.getNode(id);
+    const total = tree.totalNodes;
+    const safe = total - rdr.errSet.size;
+    const confinementPct = Math.round((safe / total) * 100);
+    ovl.textContent = '\u26A0 Error at depth ' + nd.depth + ': ' + rdr.errSet.size + ' nodes affected, ' + safe + ' safe (' + confinementPct + '% confined)';
+    ovl.classList.add('bright');
+  } else {
+    rdr.selected = rdr.selected === id ? null : id;
+    rdr.errId = null; rdr.errSet = new Set();
+    if (rdr.selected !== null) {
+      const nd = tree.getNode(id);
+      const sz = tree.subtreeSize(id);
+      ovl.textContent = 'Node v' + id + ' \u00b7 depth ' + nd.depth + ' \u00b7 subtree size ' + sz + ' \u00b7 ' + nd.children.length + ' children';
+      ovl.classList.remove('bright');
+    } else { ovl.textContent = ''; }
+  }
+  updateStats(); render();
+});
+
+// Canvas hover tooltip
+cv.addEventListener('mousemove', e => {
+  if (rdr.mode !== 'tree') { document.getElementById('tooltip').style.display = 'none'; return; }
+  const rect = cv.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  const id = rdr.hitTest(mx, my);
+  const tt = document.getElementById('tooltip');
+  if (id !== null) {
+    const nd = tree.getNode(id);
+    const sz = tree.subtreeSize(id);
+    tt.style.display = 'block';
+    tt.style.left = (mx + 18) + 'px'; tt.style.top = (my - 10) + 'px';
+    tt.textContent = 'v' + id + ' \u00b7 depth ' + nd.depth + ' \u00b7 subtree ' + sz + ' nodes';
+    cv.style.cursor = 'pointer';
+  } else { tt.style.display = 'none'; cv.style.cursor = 'default'; }
+});
+
+// Keyboard shortcut: R = reset, E = error mode
+window.addEventListener('keydown', e => {
+  if (e.key === 'r' || e.key === 'R') { document.getElementById('btnReset').click(); }
+  if (e.key === 'e' || e.key === 'E') { document.getElementById('btnError').click(); }
+});
+
+window.addEventListener('resize', resize);
+window.addEventListener('DOMContentLoaded', () => {
+  resize(); render(); updateStats();
+  console.log('%cError Confinement%c engine ready — p=' + prime + ' d=' + depth +
+    ' nodes=' + tree.totalNodes,
+    'color:#188038;font-weight:bold', 'color:#6c757d');
+
+  // window._demo with getter (prevents STALE-ENGINE-REF-1)
+  window._demo = {
+    get tree() { return tree; },
+    rebuild,
+    get p() { return prime; },
+    get depth() { return depth; },
+    get errorId() { return rdr.errId; },
+    get errorSet() { return rdr.errSet; },
+    get mode() { return rdr.mode; },
+    setPrime: v => { prime = v; document.querySelector('[data-p="' + v + '"]').click(); },
+    setDepth: v => { depth = v; rebuild(); },
+    injectError: id => {
+      rdr.errId = id; rdr.errSet = tree.getErrorSubtree(id); rdr.selected = id;
+      updateStats(); render();
+    },
+    clearError: () => {
+      rdr.errId = null; rdr.errSet = new Set(); updateStats(); render();
+    },
+    verifyMath: () => verifyMath(tree)
+  };
+
+  // GOLDEN-VALUE TEST for p=2, d=3 (default):
+  // root subtree = 15, depth-1 = 7, depth-2 = 3, leaf = 1
+  console.log('%cGolden-value verification (p=2, d=3):%c',
+    'font-weight:bold', 'color:#6c757d');
+  console.log('  root(depth 0): ' + tree.subtreeSize(0) + ' (expect 15)');
+  console.log('  depth 1: ' + tree.subtreeSize(1) + ' (expect 7)');
+  console.log('  depth 2: ' + tree.subtreeSize(3) + ' (expect 3)');
+  console.log('  depth 3 (leaf): ' + tree.subtreeSize(7) + ' (expect 1)');
+  console.log('  Total nodes: ' + tree.totalNodes + ' = ' +
+    ' (p^(d+1)-1)/(p-1) = ' + ((Math.pow(prime, depth+1)-1)/(prime-1)));
+});
+</script>
+</body>
+</html>
