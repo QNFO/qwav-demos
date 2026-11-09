@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bruhat–Tits QEC: Staircase Redundancy vs Archimedean Codes</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #ffffff;
+  --surface: #f8f9fa;
+  --border: #dee2e6;
+  --text: #212529;
+  --muted: #6c757d;
+  --accent: #1a73e8;
+  --accent-soft: #e8f0fe;
+  --error: #d93025;
+  --compare: #b06000;
+  --grid: #f1f3f5;
+}
+
+html { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 15px; line-height: 1.55; }
+body { min-height: 100vh; }
+
+/* HEADER — one-sentence research claim */
+header {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  background: var(--surface);
+}
+header h1 { font-family: Georgia, 'Times New Roman', serif; font-size: 1.35rem; font-weight: 700; color: var(--text); letter-spacing: -0.01em; }
+header h1 span.claim { display: block; font-size: 0.8rem; font-weight: 400; color: var(--muted); margin-top: 0.2rem; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+.status-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+
+/* LAYOUT */
+main { display: grid; grid-template-columns: 340px 1fr; height: calc(100vh - 76px); }
+.panel { border-right: 1px solid var(--border); background: var(--surface); padding: 1rem; overflow-y: auto; display: flex; flex-direction: column; gap: 0.9rem; }
+.viewport { position: relative; overflow: hidden; display: flex; flex-direction: column; }
+
+.section { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 0.85rem 1rem; }
+.section-title { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 0.6rem; font-weight: 600; }
+
+/* HELP (self-explanatory) */
+details.help { border: 1px solid var(--accent); border-radius: 6px; background: var(--accent-soft); padding: 0.6rem 0.85rem; }
+details.help summary { cursor: pointer; font-size: 0.8rem; font-weight: 600; color: var(--accent); }
+details.help ul { margin: 0.5rem 0 0 1.1rem; font-size: 0.75rem; color: var(--text); }
+details.help li { margin-bottom: 0.25rem; }
+
+/* CONTROLS */
+.control-row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+.control-row label { font-size: 0.78rem; color: var(--muted); min-width: 4.5rem; }
+.prime-btn {
+  width: 2.4rem; height: 2.4rem; border: 1px solid var(--border); background: var(--bg); color: var(--text);
+  border-radius: 5px; cursor: pointer; font-size: 0.95rem; font-weight: 600;
+  transition: all 0.12s; font-family: inherit;
+}
+.prime-btn:hover { border-color: var(--accent); }
+.prime-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.slider-wrap { flex: 1; }
+.slider-wrap input[type=range] { width: 100%; accent-color: var(--accent); }
+.slider-labels { display: flex; justify-content: space-between; font-size: 0.65rem; color: var(--muted); margin-top: 0.2rem; }
+
+.action-btn {
+  width: 100%; padding: 0.55rem 0.8rem; border: 1px solid var(--border); background: var(--bg); color: var(--text);
+  font-size: 0.8rem; border-radius: 5px; cursor: pointer; transition: all 0.12s; text-align: left; font-family: inherit;
+}
+.action-btn:hover { border-color: var(--accent); background: var(--accent-soft); }
+.action-btn.active { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.action-btn .indicator { float: right; font-size: 0.65rem; color: var(--accent); }
+.action-btn .indicator.off { color: var(--muted); }
+
+/* STATS */
+.stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem; }
+.stat { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 0.4rem 0.6rem; }
+.stat-label { font-size: 0.62rem; color: var(--muted); text-transform: uppercase; }
+.stat-value { font-size: 1.05rem; font-weight: 700; color: var(--accent); font-family: 'JetBrains Mono', Consolas, monospace; }
+
+/* KEY INSIGHT */
+.insight { font-size: 0.75rem; line-height: 1.65; color: var(--text); }
+.insight b { color: var(--accent); }
+.insight .cmp { color: var(--compare); font-weight: 600; }
+
+/* TABS */
+.tabs { display: flex; border-bottom: 1px solid var(--border); background: var(--surface); }
+.tab {
+  padding: 0.6rem 1.3rem; border: none; background: transparent; color: var(--muted);
+  font-size: 0.8rem; cursor: pointer; border-right: 1px solid var(--border);
+  transition: all 0.12s; font-family: inherit; font-weight: 500;
+}
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--accent); background: var(--bg); border-bottom: 2px solid var(--accent); margin-bottom: -1px; font-weight: 600; }
+
+/* CANVAS */
+.canvas-wrap { flex: 1; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; background: var(--bg); }
+.canvas-wrap canvas { display: block; }
+.overlay { position: absolute; bottom: 0.8rem; left: 1rem; font-size: 0.7rem; color: var(--muted); background: rgba(255,255,255,0.85); padding: 0.25rem 0.6rem; border-radius: 4px; border: 1px solid var(--border); }
+.overlay.bright { color: var(--error); border-color: var(--error); }
+.tooltip {
+  position: absolute; pointer-events: none; background: var(--text); color: #fff;
+  padding: 0.35rem 0.6rem; border-radius: 4px; font-size: 0.7rem; display: none; z-index: 10; white-space: nowrap;
+}
+
+/* LEGEND */
+.legend { display: flex; gap: 1.1rem; padding: 0.45rem 1rem; border-top: 1px solid var(--border); background: var(--surface); font-size: 0.7rem; color: var(--muted); flex-wrap: wrap; }
+.legend-item { display: flex; align-items: center; gap: 0.35rem; }
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+.legend-dot.tree { background: var(--accent); }
+.legend-dot.error { background: var(--error); }
+.legend-dot.selected { background: #4d8ff7; }
+.legend-dot.arch { background: var(--compare); }
+
+/* RESPONSIVE */
+@media (max-width: 768px) {
+  main { grid-template-columns: 1fr; grid-template-rows: auto 1fr; height: auto; min-height: 100vh; }
+  .panel { border-right: none; border-bottom: 1px solid var(--border); flex-direction: row; flex-wrap: wrap; gap: 0.5rem; padding: 0.6rem; }
+  .section { flex: 1; min-width: 150px; padding: 0.6rem; }
+  .viewport { min-height: 60vh; }
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>Bruhat–Tits Quantum Error Correction
+    <span class="claim">Shows: on an ultrametric (p-adic) code, redundancy grows in discrete staircase steps — not the smooth curve of Archimedean codes — creating windows where QEC and quantum Darwinism coexist.</span>
+  </h1>
+  <div class="status-dot" title="Computation engine active"></div>
+</header>
+
+<main>
+  <aside class="panel">
+    <details class="help" open>
+      <summary>How to use this demo (click to collapse)</summary>
+      <ul>
+        <li><b>Prime buttons</b> — choose the effective prime p of the Bruhat–Tits tree (2, 3, or 5).</li>
+        <li><b>Depth slider</b> — how many levels of the tree to build.</li>
+        <li><b>Tree geometry</b> tab — hover/click nodes; click to select and see its path.</li>
+        <li><b>Redundancy curve</b> tab — the staircase; toggle <b>Compare Archimedean</b> for the smooth case.</li>
+        <li><b>Inject error</b> — then click a node to see ultrametric error confinement (only that subtree is affected).</li>
+        <li><b>Reset</b> — clear selections and return to default.</li>
+      </ul>
+    </details>
+
+    <div class="section">
+      <div class="section-title">Effective prime p</div>
+      <div class="control-row" id="primeButtons">
+        <button class="prime-btn active" data-p="2" title="p = 2: binary tree">2</button>
+        <button class="prime-btn" data-p="3" title="p = 3: ternary tree">3</button>
+        <button class="prime-btn" data-p="5" title="p = 5: 5-ary tree">5</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Tree depth d</div>
+      <div class="slider-wrap">
+        <input type="range" id="depthSlider" min="1" max="6" value="3" step="1" title="Number of tree levels">
+        <div class="slider-labels"><span>1</span><span>6</span></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:0.2rem;">
+        <span style="font-size:0.7rem;color:var(--muted)">Current depth:</span>
+        <span style="font-size:0.9rem;font-weight:700;color:var(--accent)" id="depthLabel">3</span>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Controls</div>
+      <div style="display:flex;flex-direction:column;gap:0.4rem;">
+        <button class="action-btn" id="btnCompare" title="Overlay the smooth Archimedean redundancy curve">
+          <span>Compare Archimedean</span>
+          <span class="indicator off" id="cmpInd">●</span>
+        </button>
+        <button class="action-btn" id="btnError" title="Then click a node to inject an error and see confinement">
+          <span>Inject error at node</span>
+          <span class="indicator off" id="errInd">●</span>
+        </button>
+        <button class="action-btn" id="btnReset" title="Clear all selections">
+          <span>Reset view</span>
+          <span style="float:right;font-size:0.65rem;color:var(--muted)">R</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Live metrics</div>
+      <div class="stat-grid">
+        <div class="stat"><div class="stat-label">Total nodes</div><div class="stat-value" id="statNodes">15</div></div>
+        <div class="stat"><div class="stat-label">Tree depth</div><div class="stat-value" id="statDepth">3</div></div>
+        <div class="stat"><div class="stat-label">Redundancy R</div><div class="stat-value" id="statRed">8</div></div>
+        <div class="stat"><div class="stat-label">Max R (all lvls)</div><div class="stat-value" id="statMaxR">14</div></div>
+      </div>
+    </div>
+
+    <div class="section" style="border-color:var(--accent);">
+      <div class="section-title" style="color:var(--accent)">Key insight — verify it yourself</div>
+      <p class="insight">
+        In <b>Archimedean</b> codes, adding one qubit adds exactly +1 redundancy (a <span class="cmp">smooth curve</span>).
+        In a <b>Bruhat–Tits tree</b> code, adding one tree level adds +p<sup>r</sup> redundancy at once (a <b>staircase</b>).
+        Count the horizontal steps on the curve — between steps, redundancy cannot change, so QEC and classical objectivity can coexist there.
+        Redundancy here = number of nodes at the deepest level (distinct environment fragments).
+      </p>
+    </div>
+  </aside>
+
+  <section class="viewport">
+    <div class="tabs">
+      <button class="tab active" data-view="tree">Tree geometry</button>
+      <button class="tab" data-view="curve">Redundancy curve</button>
+    </div>
+    <div class="canvas-wrap" id="canvasWrap">
+      <canvas id="mainCanvas"></canvas>
+      <div class="overlay" id="overlay"></div>
+      <div class="tooltip" id="tooltip"></div>
+    </div>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot tree"></div> Node</div>
+      <div class="legend-item"><div class="legend-dot selected"></div> Selected</div>
+      <div class="legend-item"><div class="legend-dot error"></div> Error subtree</div>
+      <div class="legend-item"><div class="legend-dot arch"></div> Archimedean</div>
+    </div>
+  </section>
+</main>
+
+<script>
+// ============================================================
+// BT-TREE COMPUTATION ENGINE (pure math — no DOM)
+// ============================================================
+class BTTree {
+  constructor(p, depth) {
+    this.p = p; this.depth = depth; this.build();
+  }
+  build() {
+    this.nodes = []; this.nodesByDepth = {}; this.nodeCount = 0;
+    this.nodesByDepth[0] = [this._make(0, -1)];
+    for (let d = 1; d <= this.depth; d++) {
+      this.nodesByDepth[d] = [];
+      for (const parent of this.nodesByDepth[d - 1]) {
+        for (let i = 0; i < this.p; i++) {
+          const child = this._make(d, parent.id);
+          parent.children.push(child.id);
+          this.nodesByDepth[d].push(child);
+        }
+      }
+    }
+  }
+  _make(depth, pid) {
+    const n = { id: this.nodeCount++, depth, parentId: pid, children: [], childIndex: 0 };
+    if (pid !== -1) n.childIndex = this.nodes[pid].children.length;
+    this.nodes.push(n); return n;
+  }
+  getNode(id) { return this.nodes[id]; }
+  getErrorSubtree(id) {
+    const st = new Set([id]);
+    const stack = [...this.getNode(id).children];
+    while (stack.length) { const c = stack.pop(); st.add(c); stack.push(...this.getNode(c).children); }
+    return st;
+  }
+  getPath(id) {
+    const p = [id]; let cur = this.getNode(id);
+    while (cur.parentId !== -1) { p.unshift(cur.parentId); cur = this.getNode(cur.parentId); }
+    return p;
+  }
+  getRedundancy(d) { return this.nodesByDepth[d] ? this.nodesByDepth[d].length : 0; }
+  getTotalRedundancy() {
+    let t = 0; for (let d = 1; d <= this.depth; d++) t += this.nodesByDepth[d].length;
+    return t;
+  }
+  getStaircase(maxDepth) {
+    maxDepth = maxDepth || this.depth;
+    const c = [];
+    for (let d = 0; d <= maxDepth; d++) c.push({ depth: d, r: this.nodesByDepth[d].length });
+    return c;
+  }
+}
+
+// ============================================================
+// RENDERER
+// ============================================================
+class Renderer {
+  constructor(canvas, tree) {
+    this.cv = canvas; this.ctx = canvas.getContext('2d'); this.tree = tree;
+    this.pos = new Map(); this.dpr = window.devicePixelRatio || 1;
+    this.selected = null; this.errId = null; this.errSet = new Set();
+    this.mode = 'tree'; this.showCompare = false;
+  }
+  resize() {
+    const w = this.cv.parentElement;
+    this.cv.width = w.clientWidth * this.dpr;
+    this.cv.height = w.clientHeight * this.dpr;
+    this.cv.style.width = w.clientWidth + 'px';
+    this.cv.style.height = w.clientHeight + 'px';
+  }
+  render() {
+    this.ctx.save(); this.ctx.scale(this.dpr, this.dpr);
+    this.ctx.clearRect(0, 0, this.cv.width / this.dpr, this.cv.height / this.dpr);
+    if (this.mode === 'tree') { this._layout(); this._drawEdges(); this._drawNodes(); }
+    else this._drawCurve();
+    this.ctx.restore();
+  }
+  _layout() {
+    const W = this.cv.width / this.dpr, H = this.cv.height / this.dpr;
+    const vm = 55, hm = 90, avH = H - vm * 2, avW = W - hm * 2;
+    const vStep = this.tree.depth > 0 ? avH / this.tree.depth : 0;
+    this.pos.clear();
+    for (let d = 0; d <= this.tree.depth; d++) {
+      const ns = this.tree.nodesByDepth[d];
+      const y = vm + d * vStep;
+      const n = ns.length, hStep = n > 1 ? avW / (n - 1) : 0;
+      const sx = n === 1 ? W / 2 : hm;
+      ns.forEach((nd, i) => this.pos.set(nd.id, { x: n === 1 ? sx : sx + i * hStep, y }));
+    }
+  }
+  _drawEdges() {
+    for (let d = 1; d <= this.tree.depth; d++) {
+      for (const p of this.tree.nodesByDepth[d - 1]) {
+        const pp = this.pos.get(p.id); if (!pp) continue;
+        for (const cid of p.children) {
+          const cp = this.pos.get(cid); if (!cp) continue;
+          const err = this.errSet.has(p.id) && this.errSet.has(cid);
+          this.ctx.strokeStyle = err ? 'rgba(217,48,37,0.45)' : '#adb5bd';
+          this.ctx.lineWidth = err ? 1.5 : 1;
+          this.ctx.beginPath(); this.ctx.moveTo(pp.x, pp.y); this.ctx.lineTo(cp.x, cp.y); this.ctx.stroke();
+        }
+      }
+    }
+  }
+  _drawNodes() {
+    const r = Math.max(5, 12 - this.tree.depth);
+    for (const [id, p] of this.pos) {
+      const nd = this.tree.getNode(id);
+      const sel = this.selected === id, err = this.errSet.has(id);
+      const root = id === 0, leaf = nd.children.length === 0;
+      this.ctx.beginPath(); this.ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+      if (sel) { this.ctx.fillStyle = '#4d8ff7'; this.ctx.strokeStyle = '#1a73e8'; this.ctx.lineWidth = 2; }
+      else if (err) { this.ctx.fillStyle = '#d93025'; this.ctx.strokeStyle = '#d93025'; this.ctx.lineWidth = 1.5; }
+      else if (root) { this.ctx.fillStyle = '#e8f0fe'; this.ctx.strokeStyle = '#1a73e8'; this.ctx.lineWidth = 1.5; }
+      else if (leaf) { this.ctx.fillStyle = '#e9ecef'; this.ctx.strokeStyle = '#ced4da'; this.ctx.lineWidth = 1; }
+      else { this.ctx.fillStyle = '#f8f9fa'; this.ctx.strokeStyle = '#ced4da'; this.ctx.lineWidth = 1; }
+      this.ctx.fill(); this.ctx.stroke();
+      if (leaf || root) {
+        this.ctx.fillStyle = sel ? '#fff' : (err ? '#fff' : '#6c757d');
+        this.ctx.font = (r - 1) + "px 'JetBrains Mono', Consolas, monospace";
+        this.ctx.textAlign = 'center'; this.ctx.textBaseline = 'middle';
+        this.ctx.fillText(root ? 'L' : String(nd.depth), p.x, p.y);
+      }
+    }
+    if (this.selected !== null) {
+      const path = this.tree.getPath(this.selected);
+      this.ctx.strokeStyle = 'rgba(26,115,232,0.25)'; this.ctx.lineWidth = 3;
+      for (let i = 1; i < path.length; i++) {
+        const a = this.pos.get(path[i - 1]), b = this.pos.get(path[i]);
+        if (a && b) { this.ctx.beginPath(); this.ctx.moveTo(a.x, a.y); this.ctx.lineTo(b.x, b.y); this.ctx.stroke(); }
+      }
+    }
+  }
+  _drawCurve() {
+    const W = this.cv.width / this.dpr, H = this.cv.height / this.dpr;
+    const ctx = this.ctx;
+    const pad = { t: 45, r: 55, b: 50, l: 80 };
+    const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+    const sc = this.tree.getStaircase(this.tree.depth);
+    const maxP = Math.pow(this.tree.p, this.tree.depth);
+    const dataMax = Math.max(maxP * 1.1, 350);
+    const tx = d => pad.l + (d / this.tree.depth) * pw;
+    const ty = v => pad.t + ph - (v / dataMax) * ph;
+
+    ctx.strokeStyle = 'rgba(222,226,230,0.6)'; ctx.lineWidth = 0.5;
+    for (let i = 0; i <= 5; i++) {
+      const y = pad.t + (ph / 5) * i;
+      ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
+      ctx.fillStyle = '#6c757d'; ctx.font = "10px 'JetBrains Mono', Consolas, monospace"; ctx.textAlign = 'right';
+      ctx.fillText(Math.round(dataMax * (1 - i / 5)), pad.l - 8, y + 3);
+    }
+    ctx.strokeStyle = '#ced4da'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, pad.t + ph); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(pad.l, pad.t + ph); ctx.lineTo(W - pad.r, pad.t + ph); ctx.stroke();
+
+    if (this.showCompare) {
+      ctx.strokeStyle = 'rgba(176,96,0,0.55)'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]);
+      ctx.beginPath(); ctx.moveTo(tx(0), ty(1));
+      for (let d = 0; d <= this.tree.depth; d++) ctx.lineTo(tx(d), ty(Math.pow(2, d)));
+      ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = '#b06000'; ctx.font = "11px Georgia, serif"; ctx.textAlign = 'left';
+      ctx.fillText('Archimedean (2\u1d48)', tx(this.tree.depth) + 8, ty(Math.pow(2, this.tree.depth)) + 4);
+    }
+
+    const pts = sc.map(s => ({ x: tx(s.depth), y: ty(s.r) }));
+    ctx.fillStyle = 'rgba(26,115,232,0.07)'; ctx.beginPath();
+    ctx.moveTo(pts[0].x, ty(0));
+    for (let i = 0; i < pts.length; i++) {
+      if (i > 0) ctx.lineTo(pts[i].x, pts[i - 1].y);
+      ctx.lineTo(pts[i].x, pts[i].y);
+    }
+    ctx.lineTo(pts[pts.length - 1].x, ty(0)); ctx.closePath(); ctx.fill();
+
+    ctx.strokeStyle = '#1a73e8'; ctx.lineWidth = 2; ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length; i++) { ctx.lineTo(pts[i].x, pts[i - 1].y); ctx.lineTo(pts[i].x, pts[i].y); }
+    ctx.stroke();
+    for (const pt of pts) { ctx.fillStyle = '#1a73e8'; ctx.beginPath(); ctx.arc(pt.x, pt.y, 3.5, 0, Math.PI * 2); ctx.fill(); }
+
+    ctx.fillStyle = '#1a73e8'; ctx.font = "11px Georgia, serif"; ctx.textAlign = 'left';
+    ctx.fillText('BT-tree (p=' + this.tree.p + ') — staircase', pad.l + 5, pad.t - 12);
+    ctx.fillStyle = '#6c757d'; ctx.font = "11px Georgia, serif"; ctx.textAlign = 'center';
+    ctx.fillText('Tree depth d', W / 2, H - 5);
+    ctx.save(); ctx.translate(13, H / 2); ctx.rotate(-Math.PI / 2); ctx.fillText('Redundancy R(d) = p\u1d48', 0, 0); ctx.restore();
+
+    if (this.tree.depth <= 4) {
+      ctx.fillStyle = 'rgba(26,115,232,0.6)'; ctx.font = "9px 'JetBrains Mono', Consolas, monospace";
+      for (let i = 1; i < pts.length; i++) {
+        const gap = pts[i - 1].y - pts[i].y;
+        if (gap > 12) { ctx.textAlign = 'right'; ctx.fillText('+' + sc[i].r, pts[i].x - 4, (pts[i].y + pts[i - 1].y) / 2); }
+      }
+    }
+  }
+  hitTest(mx, my) {
+    let best = null, bd = 20;
+    for (const [id, p] of this.pos) { const d = Math.hypot(mx - p.x, my - p.y); if (d < bd) { bd = d; best = id; } }
+    return best;
+  }
+}
+
+// ============================================================
+// APP
+// ============================================================
+let prime = 2, depth = 3, errorMode = false, showCompare = false;
+let tree = new BTTree(prime, depth);
+const cv = document.getElementById('mainCanvas');
+const rdr = new Renderer(cv, tree);
+
+function rebuild() {
+  tree = new BTTree(prime, depth);
+  rdr.tree = tree; rdr.selected = null;
+  if (!errorMode) { rdr.errId = null; rdr.errSet = new Set(); }
+  render(); updateStats();
+}
+function render() { rdr.render(); }
+function updateStats() {
+  document.getElementById('statNodes').textContent = tree.nodeCount;
+  document.getElementById('statDepth').textContent = tree.depth;
+  document.getElementById('statRed').textContent = tree.getRedundancy(tree.depth);
+  document.getElementById('statMaxR').textContent = tree.getTotalRedundancy();
+  document.getElementById('depthLabel').textContent = depth;
+}
+function resize() { rdr.resize(); render(); }
+
+document.getElementById('primeButtons').addEventListener('click', e => {
+  const b = e.target.closest('.prime-btn'); if (!b) return;
+  prime = parseInt(b.dataset.p);
+  document.querySelectorAll('.prime-btn').forEach(x => x.classList.toggle('active', x === b));
+  rebuild();
+});
+document.getElementById('depthSlider').addEventListener('input', e => { depth = parseInt(e.target.value); rebuild(); });
+
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    rdr.mode = t.dataset.view;
+    render();
+  });
+});
+
+document.getElementById('btnCompare').addEventListener('click', () => {
+  showCompare = !showCompare; rdr.showCompare = showCompare;
+  const el = document.getElementById('cmpInd');
+  el.classList.toggle('off', !showCompare);
+  el.textContent = showCompare ? '\u25C9' : '\u25CF';
+  document.getElementById('btnCompare').classList.toggle('active', showCompare);
+  render();
+});
+
+document.getElementById('btnError').addEventListener('click', () => {
+  errorMode = !errorMode;
+  const el = document.getElementById('errInd');
+  el.classList.toggle('off', !errorMode);
+  el.textContent = errorMode ? '\u25C9' : '\u25CF';
+  document.getElementById('btnError').classList.toggle('active', errorMode);
+  if (!errorMode) { rdr.errId = null; rdr.errSet = new Set(); }
+  const ovl = document.getElementById('overlay');
+  ovl.textContent = errorMode ? 'Error mode: click any node to inject an error' : '';
+  ovl.classList.toggle('bright', errorMode);
+  render();
+});
+
+document.getElementById('btnReset').addEventListener('click', () => {
+  rdr.selected = null; rdr.errId = null; rdr.errSet = new Set();
+  errorMode = false; showCompare = false; rdr.showCompare = false;
+  document.getElementById('cmpInd').classList.add('off'); document.getElementById('cmpInd').textContent = '\u25CF';
+  document.getElementById('btnCompare').classList.remove('active');
+  document.getElementById('errInd').classList.add('off'); document.getElementById('errInd').textContent = '\u25CF';
+  document.getElementById('btnError').classList.remove('active');
+  const ovl = document.getElementById('overlay');
+  ovl.textContent = ''; ovl.classList.remove('bright');
+  document.getElementById('tooltip').style.display = 'none';
+  render();
+});
+
+cv.addEventListener('click', e => {
+  if (rdr.mode !== 'tree') return;
+  const rect = cv.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  const id = rdr.hitTest(mx, my);
+  if (id === null) return;
+  const ovl = document.getElementById('overlay');
+  if (errorMode) {
+    rdr.errId = id; rdr.errSet = tree.getErrorSubtree(id); rdr.selected = id;
+    const nd = tree.getNode(id);
+    ovl.textContent = 'Error at depth ' + nd.depth + ': ' + rdr.errSet.size + ' nodes affected (ultrametric confinement)';
+    ovl.classList.add('bright');
+  } else {
+    rdr.selected = rdr.selected === id ? null : id;
+    rdr.errId = null; rdr.errSet = new Set();
+    if (rdr.selected !== null) {
+      const nd = tree.getNode(id);
+      ovl.textContent = 'Node v' + id + ' \u00b7 depth ' + nd.depth + ' \u00b7 ' + nd.children.length + ' children';
+      ovl.classList.remove('bright');
+    } else { ovl.textContent = ''; }
+  }
+  render();
+});
+cv.addEventListener('mousemove', e => {
+  if (rdr.mode !== 'tree') { document.getElementById('tooltip').style.display = 'none'; return; }
+  const rect = cv.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  const id = rdr.hitTest(mx, my);
+  const tt = document.getElementById('tooltip');
+  if (id !== null) {
+    const nd = tree.getNode(id);
+    tt.style.display = 'block';
+    tt.style.left = (mx + 18) + 'px'; tt.style.top = (my - 10) + 'px';
+    tt.textContent = 'v' + id + ' \u00b7 depth ' + nd.depth + ' \u00b7 ' + nd.children.length + ' children';
+    cv.style.cursor = 'pointer';
+  } else { tt.style.display = 'none'; cv.style.cursor = 'default'; }
+});
+
+window.addEventListener('resize', resize);
+window.addEventListener('DOMContentLoaded', () => {
+  resize(); render(); updateStats();
+  console.log('%cBT-Tree QEC%c engine ready — p=2 d=3 nodes=15 redundancy=8',
+    'color:#1a73e8;font-weight:bold', 'color:#6c757d');
+  window._demo = {
+    get tree() { return tree; },
+    rebuild,
+    get p() { return prime; },
+    get depth() { return depth; },
+    setPrime: v => { prime = v; document.querySelector(`[data-p="${v}"]`).click(); },
+    setDepth: v => { depth = v; rebuild(); }
+  };
+  console.log('Verification:',
+    tree.nodesByDepth[0].length === 1 &&
+    tree.nodesByDepth[depth].length === Math.pow(prime, depth) ? 'PASS' : 'FAIL');
+});
+</script>
+</body>
+</html>
