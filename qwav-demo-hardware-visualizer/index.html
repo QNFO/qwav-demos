@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hardware Pathway Visualizer — 40-Atom Neutral Atom Tree Lattice</title>
+<style>
+  :root {
+    --ink: #ffffff; --ink-2: #f8f9fa; --panel: #f8f9fa; --line: #dee2e6;
+    --line-2: #ced4da; --text: #212529; --text-dim: #6c757d;
+    --cyan: #1a73e8; --amber: #b06000; --ember: #d93025; --violet: #6f42c1; --green: #188038;
+    --mono: "JetBrains Mono",Consolas,monospace;
+    --ui: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    --radius: 8px; --radius-sm: 5px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:radial-gradient(1100px 560px at 72%-12%,rgba(26,115,232,0.05),transparent 60%),radial-gradient(800px 480px at 8% 112%,rgba(217,48,37,0.04),transparent 55%),var(--ink);color:var(--text);font-family:var(--ui);min-height:100vh;overflow:hidden}
+  .wrap{max-width:1400px;margin:0 auto;padding:16px 20px}
+  .header{padding:8px 0;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line)}
+  .header h1{font-family:Georgia,"Times New Roman",serif;font-size:1.2rem;font-weight:600;color:var(--ember);letter-spacing:-0.01em}
+  .header .tagline{font-size:0.75rem;color:var(--text-dim)}
+  .main{display:grid;grid-template-columns:1fr 240px;gap:16px;margin-top:12px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:14px}
+  .panel h2{font-family:var(--mono);font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);margin-bottom:8px}
+  .canvas-panel canvas{width:100%;display:block;border-radius:4px;cursor:grab}
+  .canvas-panel canvas:active{cursor:grabbing}
+  .seg{display:flex;flex-wrap:wrap;gap:4px;margin:6px 0}
+  .seg button{background:var(--ink-2);border:1px solid var(--line);color:var(--text-dim);font-family:var(--mono);font-size:0.72rem;padding:5px 10px;border-radius:var(--radius-sm);cursor:pointer;transition:all 0.15s}
+  .seg button:hover{color:var(--text);border-color:var(--line-2)}
+  .seg button.active{background:rgba(217,48,37,0.12);color:var(--ember);border-color:var(--ember);box-shadow:0 0 8px rgba(217,48,37,0.15)}
+  .readout-row{display:flex;justify-content:space-between;align-items:baseline;padding:3px 0;border-bottom:1px solid rgba(29,42,70,0.3)}
+  .readout-row:last-child{border-bottom:none}
+  .readout-label{font-size:0.7rem;color:var(--text-dim)}
+  .readout-val{font-family:var(--mono);font-size:0.8rem;color:var(--text)}
+  .readout-val.ember{color:var(--ember)}
+  .action-bar{display:flex;gap:4px;margin-top:8px;flex-wrap:wrap}
+  .action-bar button{background:var(--ink-2);border:1px solid var(--line);color:var(--text-dim);font-family:var(--ui);font-size:0.7rem;padding:4px 8px;border-radius:var(--radius-sm);cursor:pointer;transition:all 0.15s}
+  .action-bar button:hover{color:var(--text);border-color:var(--line-2)}
+  .action-bar button.primary{background:rgba(217,48,37,0.1);color:var(--ember);border-color:var(--ember)}
+  .tour-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:100;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity 0.3s}
+  .tour-overlay.active{opacity:1;pointer-events:all}
+  .tour-card{background:var(--panel);border:1px solid var(--ember);border-radius:var(--radius);padding:24px 28px;max-width:420px;text-align:center;box-shadow:0 0 40px rgba(217,48,37,0.15)}
+  .tour-card h3{font-family:var(--mono);color:var(--ember);font-size:1rem;margin-bottom:8px}
+  .tour-card p{color:var(--text-dim);font-size:0.85rem;line-height:1.5;margin-bottom:16px}
+  .tour-card .step-dots{display:flex;justify-content:center;gap:6px;margin-bottom:14px}
+  .tour-card .step-dot{width:6px;height:6px;border-radius:50%;background:var(--line-2);transition:all 0.2s}
+  .tour-card .step-dot.active{background:var(--ember);box-shadow:0 0 6px rgba(217,48,37,0.4)}
+  .tour-card button{background:var(--ember);border:none;color:var(--text);font-family:var(--ui);font-size:0.82rem;padding:8px 24px;border-radius:var(--radius-sm);cursor:pointer;font-weight:600}
+  .tour-card .skip{background:none;color:var(--text-dim);border:none;margin-left:10px;font-size:0.75rem;cursor:pointer}
+  .toast{position:fixed;bottom:24px;right:24px;background:var(--panel);border:1px solid var(--green);color:var(--green);padding:10px 18px;border-radius:var(--radius-sm);font-family:var(--mono);font-size:0.73rem;z-index:200;opacity:0;transform:translateY(20px);transition:all 0.3s;pointer-events:none}
+  .toast.show{opacity:1;transform:translateY(0)}
+  .footer{text-align:center;font-size:0.6rem;color:var(--text-dim);margin-top:8px}
+  .footer a{color:var(--ember);text-decoration:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="header">
+  <div><h1>Hardware Pathway Visualizer — 40-Atom Neutral Atom Lattice</h1><div class="tagline">Bruhat-Tits-inspired tree lattice (p=3, d=3: 1+3+9+27=40 atoms) with Rydberg blockade gates. Drag to rotate.</div></div>
+</div>
+<div class="main">
+  <div class="panel canvas-panel" style="min-height:580px">
+    <canvas id="scene"></canvas>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <div class="panel">
+      <h2>Controls</h2>
+      <div class="seg" id="gateSeg">
+        <button data-g="1" class="active">Gates ON</button>
+        <button data-g="0">Gates OFF</button>
+      </div>
+      <div class="seg" id="rotSeg">
+        <button data-r="auto" class="active">Auto-Rotate</button>
+        <button data-r="manual">Manual Drag</button>
+      </div>
+      <div class="action-bar">
+        <button id="topBtn" class="primary">📷 Top View</button>
+        <button id="resetBtn">↺ Reset</button>
+        <button id="verifyBtn">✓ Verify</button>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Lattice Info</h2>
+      <div class="readout-row"><span class="readout-label">Total Atoms</span><span class="readout-val ember">40</span></div>
+      <div class="readout-row"><span class="readout-label">Depth 0 (root)</span><span class="readout-val">1</span></div>
+      <div class="readout-row"><span class="readout-label">Depth 1</span><span class="readout-val">3</span></div>
+      <div class="readout-row"><span class="readout-label">Depth 2</span><span class="readout-val">9</span></div>
+      <div class="readout-row"><span class="readout-label">Depth 3 (leaves)</span><span class="readout-val">27</span></div>
+      <div class="readout-row"><span class="readout-label">Gate Edges</span><span class="readout-val" id="gateCount">—</span></div>
+      <div class="readout-row"><span class="readout-label">Rotation</span><span class="readout-val" id="rotLabel">auto</span></div>
+      <div style="margin-top:10px;font-size:0.7rem;color:var(--text-dim);line-height:1.5">
+        <span style="color:var(--ember)">Red</span> = atoms (size ∝ depth)<br>
+        <span style="color:var(--amber)">Gold</span> = Rydberg blockade gates<br>
+        Drag to rotate | Scroll to zoom
+      </div>
+    </div>
+    <div class="footer">QWAV Artifact A5 — <a href="https://github.com/QNFO/qwav-demo-hardware-visualizer">Source</a> | <a href="#" id="tourTrigger">Tour</a></div>
+  </div>
+</div>
+</div>
+
+<div class="tour-overlay" id="tourOverlay"><div class="tour-card"><h3 id="tourTitle"></h3><p id="tourBody"></p><div class="step-dots" id="tourDots"></div><button id="tourNext">Next</button><button class="skip" id="tourSkip">Skip</button></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const S = { atoms: [], gates: [], gatesOn: true, autoRotate: true, rotY: 0.5, rotX: 0.2, zoom: 1, hover: null, dragging: false, dragStart: null };
+
+function buildAtoms() {
+  S.atoms = [];
+  S.atoms.push({ x: 0, y: 0, z: 0, depth: 0, id: 0, parent: -1 });
+  let nextId = 1;
+  (function place(parent, depth, slot) {
+    if (depth >= 3) return;
+    for (let k = 0; k < 3; k++) {
+      const ang = (slot * 3 + k) * 2.1;
+      const r = 1.0 * (depth + 1);
+      const x = parent.x + r * Math.cos(ang) * (depth % 2 === 0 ? 1 : 0.6);
+      const y = parent.y + r * Math.sin(ang) * 0.5;
+      const z = parent.z + (depth % 3 === 0 ? 0.5 : -0.3) * depth;
+      const atom = { x, y, z, depth: depth + 1, id: nextId, parent: parent.id };
+      S.atoms.push(atom); nextId++;
+      place(atom, depth + 1, slot * 3 + k);
+    }
+  })(S.atoms[0], 0, 0);
+
+  // Build gates (edges between parent-child with decorations)
+  S.gates = [];
+  for (let i = 1; i < S.atoms.length; i++) {
+    const child = S.atoms[i];
+    const parent = S.atoms.find(a => a.id === child.parent);
+    if (parent) S.gates.push([parent, child]);
+  }
+}
+
+function project(a) {
+  const cosY = Math.cos(S.rotY), sinY = Math.sin(S.rotY);
+  const cosX = Math.cos(S.rotX), sinX = Math.sin(S.rotX);
+  // Rotate around Y
+  let x1 = a.x * cosY - a.z * sinY;
+  let z1 = a.x * sinY + a.z * cosY;
+  // Rotate around X
+  let y1 = a.y * cosX - z1 * sinX;
+  let z2 = a.y * sinX + z1 * cosX;
+  const f = 4.0; const scale = f / (f + z2 + 2);
+  return { sx: x1 * scale, sy: y1 * scale, sz: z2, scale };
+}
+
+function render() {
+  const cv = document.getElementById("scene"), ctx = cv.getContext("2d");
+  const dpr = Math.min(window.devicePixelRatio||1,2);
+  const w = Math.max(200,Math.floor(cv.clientWidth)), h = Math.max(200,Math.floor(cv.clientHeight));
+  if (cv.width !== w*dpr || cv.height !== h*dpr) { cv.width=w*dpr; cv.height=h*dpr; }
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,w,h);
+
+  const cx = w/2, cy = h/2;
+  const projected = S.atoms.map(a => ({ ...project(a), atom: a }));
+
+  // Sort by depth for painter's algorithm
+  projected.sort((a,b) => b.sz - a.sz);
+
+  // Draw gates
+  if (S.gatesOn) {
+    projected.forEach(p => {
+      const parent = S.atoms.find(a => a.id === p.atom.parent);
+      if (!parent) return;
+      const pp = project(parent);
+      ctx.beginPath();
+      ctx.moveTo(cx + pp.sx * S.zoom * 180, cy + pp.sy * S.zoom * 180);
+      ctx.lineTo(cx + p.sx * S.zoom * 180, cy + p.sy * S.zoom * 180);
+      ctx.strokeStyle = "rgba(176,96,0,0.2)"; ctx.lineWidth = Math.max(0.5, p.scale * 1.5);
+      ctx.stroke();
+    });
+  }
+
+  // Draw atoms
+  projected.forEach(p => {
+    const r = (4 - p.atom.depth) * 4 * p.scale * S.zoom;
+    const sx = cx + p.sx * S.zoom * 180;
+    const sy = cy + p.sy * S.zoom * 180;
+
+    ctx.beginPath();
+    ctx.arc(sx, sy, Math.max(2, r), 0, Math.PI * 2);
+    const depth = p.atom.depth;
+    const red = Math.round(255 - depth * 30);
+    const green = Math.round(59 + depth * 15);
+    const blue = Math.round(92 + depth * 20);
+    ctx.fillStyle = `rgba(${red},${green},${blue},${0.9 - depth * 0.15})`;
+    if (depth === 0) ctx.fillStyle = "rgba(176,96,0,0.9)";
+    ctx.fill();
+
+    if (p.scale > 0.3) {
+      ctx.strokeStyle = `rgba(255,255,255,${0.3 - p.atom.depth * 0.06})`;
+      ctx.lineWidth = 0.5;
+      ctx.stroke();
+    }
+  });
+}
+
+/* ═══════ MOUSE DRAG ═══════ */
+const cv = document.getElementById("scene");
+cv.addEventListener("mousedown", e => { S.dragging = true; S.dragStart = { x: e.clientX, y: e.clientY, rotY: S.rotY, rotX: S.rotX }; });
+cv.addEventListener("mousemove", e => {
+  if (!S.dragging) return;
+  S.rotY = S.dragStart.rotY + (e.clientX - S.dragStart.x) * 0.005;
+  S.rotX = S.dragStart.rotX + (e.clientY - S.dragStart.y) * 0.005;
+  S.rotX = Math.max(-Math.PI/3, Math.min(Math.PI/3, S.rotX));
+  S.autoRotate = false;
+  document.querySelectorAll("#rotSeg button").forEach(x => x.classList.toggle("active", x.dataset.r === "manual"));
+  document.getElementById("rotLabel").textContent = "manual";
+  render();
+});
+cv.addEventListener("mouseup", () => { S.dragging = false; });
+cv.addEventListener("mouseleave", () => { S.dragging = false; });
+cv.addEventListener("wheel", e => { e.preventDefault(); S.zoom = Math.max(0.5, Math.min(2.5, S.zoom - e.deltaY * 0.001)); render(); });
+
+/* ═══════ ANIMATION ═══════ */
+function animLoop() {
+  if (S.autoRotate) { S.rotY += 0.004; render(); }
+  requestAnimationFrame(animLoop);
+}
+
+/* ═══════ CONTROLS ═══════ */
+document.getElementById("gateSeg").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  S.gatesOn = b.dataset.g === "1";
+  document.querySelectorAll("#gateSeg button").forEach(x => x.classList.toggle("active", x===b));
+  document.getElementById("gateCount").textContent = S.gatesOn ? String(S.gates.length) : "hidden";
+  render();
+});
+document.getElementById("rotSeg").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  S.autoRotate = b.dataset.r === "auto";
+  document.querySelectorAll("#rotSeg button").forEach(x => x.classList.toggle("active", x===b));
+  document.getElementById("rotLabel").textContent = b.dataset.r;
+  render();
+});
+document.getElementById("topBtn").addEventListener("click", () => { S.rotY = 0; S.rotX = Math.PI/2; S.autoRotate = false; document.querySelectorAll("#rotSeg button").forEach(x => x.classList.toggle("active", x.dataset.r==="manual")); document.getElementById("rotLabel").textContent = "manual"; render(); showToast("Top-down view"); });
+document.getElementById("resetBtn").addEventListener("click", () => { S.rotY=0.5; S.rotX=0.2; S.zoom=1; S.autoRotate=true; S.gatesOn=true; document.querySelector("#gateSeg button[data-g='1']").classList.add("active"); document.querySelector("#rotSeg button[data-r='auto']").classList.add("active"); document.getElementById("rotLabel").textContent="auto"; document.getElementById("gateCount").textContent=String(S.gates.length); render(); showToast("Reset"); });
+document.getElementById("verifyBtn").addEventListener("click", verifyMath);
+
+function verifyMath() {
+  const r = [];
+  const c = (n,fn) => { try { const v=fn(); r.push({name:n,status:v===true?"PASS":"FAIL",detail:v===true?"":String(v)}); } catch(e) { r.push({name:n,status:"ERROR",detail:e.message}); } };
+  c("Atom count = 40", () => S.atoms.length===40?true:`Got ${S.atoms.length}`);
+  c("Depth 0 = 1 atom", () => S.atoms.filter(a=>a.depth===0).length===1?true:"Mismatch");
+  c("Depth 1 = 3 atoms", () => S.atoms.filter(a=>a.depth===1).length===3?true:"Mismatch");
+  c("Depth 2 = 9 atoms", () => S.atoms.filter(a=>a.depth===2).length===9?true:"Mismatch");
+  c("Depth 3 = 27 atoms", () => S.atoms.filter(a=>a.depth===3).length===27?true:"Mismatch");
+  c("Gate edges defined", () => S.gates.length>0?true:"No gates");
+  c("All atoms have valid coords", () => S.atoms.every(a=>isFinite(a.x)&&isFinite(a.y)&&isFinite(a.z))?true:"Non-finite coord");
+  let pass=0,fail=0; r.forEach(x=>x.status==="PASS"?pass++:fail++);
+  showToast(`Verification: ${pass}/${r.length} passed`);
+  console.table(r);
+  return {total:r.length,passed:pass,failed:fail,results:r};
+}
+
+function showToast(msg) { const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),3000); }
+
+/* ═══════ TOUR ═══════ */
+const TOUR = [
+  { title: "40 Atoms at 4K", body: "This visualizes a neutral-atom quantum computing architecture: 40 atoms arranged in a Bruhat-Tits-inspired tree lattice (1+3+9+27=40). Each atom is a qubit. Gold lines show Rydberg blockade gates connecting parent-child pairs." },
+  { title: "Drag to Rotate", body: "Click and drag anywhere to rotate the 3D lattice. Scroll to zoom in/out. Toggle auto-rotation to let it spin on its own. The redder atoms are deeper in the tree (leaf qubits)." },
+  { title: "Rydberg Blockade", body: "Gold lines between atoms represent Rydberg blockade gates — the physical mechanism for two-qubit operations. Toggle Gates ON/OFF to hide them. Each gate connects a parent and child in the tree." },
+  { title: "Ready to Explore", body: "This 40-atom layout matches the hardware specification from the Symmetric Extension paper. Try different viewing angles, toggle gates, and verify the structure with the ✓ Verify button." },
+];
+let ts=0;
+function startTour(){ts=0;document.getElementById("tourOverlay").classList.add("active");showTourStep();}
+function showTourStep(){
+  if(ts>=TOUR.length){document.getElementById("tourOverlay").classList.remove("active");localStorage.setItem("qwav-a5-tour-done","1");return;}
+  document.getElementById("tourTitle").textContent=TOUR[ts].title;
+  document.getElementById("tourBody").textContent=TOUR[ts].body;
+  document.getElementById("tourDots").innerHTML=TOUR.map((_,i)=>`<div class="step-dot${i===ts?' active':''}"></div>`).join("");
+  document.getElementById("tourNext").textContent=ts===TOUR.length-1?"Got it!":"Next →";
+}
+function nextTour(){ts++;showTourStep();}
+function skipTour(){document.getElementById("tourOverlay").classList.remove("active");localStorage.setItem("qwav-a5-tour-done","1");}
+
+document.getElementById("tourTrigger").addEventListener("click",e=>{e.preventDefault();startTour();});
+document.getElementById("tourNext").addEventListener("click",nextTour);
+document.getElementById("tourSkip").addEventListener("click",skipTour);
+
+/* ═══════ INIT ═══════ */
+function init() {
+  buildAtoms();
+  document.getElementById("gateCount").textContent = String(S.gates.length);
+  render();
+  requestAnimationFrame(animLoop);
+  if (!localStorage.getItem("qwav-a5-tour-done")) setTimeout(startTour, 1000);
+}
+init();
+window.__qwavMathVerify = { verifyAll: verifyMath, S };
+</script>
+</body>
+</html>
