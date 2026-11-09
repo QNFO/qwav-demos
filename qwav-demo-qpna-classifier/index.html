@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Q-PNA Classifier Playground — Glass-Box Classification</title>
+<style>
+  :root {
+    --ink: #07090f;
+    --ink-2: #0c111f;
+    --panel: #0e1526;
+    --line: #1e2c4a;
+    --line-2: #2c4070;
+    --text: #dbe6ff;
+    --text-dim: #8195c0;
+    --cyan: #00e5ff;
+    --cyan-dim: #0a9ab8;
+    --amber: #ffb300;
+    --amber-2: #ff8f00;
+    --green: #00ffa3;
+    --red: #ff3b5c;
+    --violet: #b388ff;
+    --mono: "Cascadia Code", "Consolas", "SFMono-Regular", monospace;
+    --ui: "Bahnschrift", "Segoe UI", "Arial Narrow", sans-serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background:
+      radial-gradient(1100px 560px at 75% -12%, rgba(0,229,255,0.06), transparent 60%),
+      radial-gradient(800px 480px at 8% 112%, rgba(179,136,255,0.05), transparent 55%),
+      var(--ink);
+    color: var(--text);
+    font-family: var(--ui);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  body::before {
+    content: "";
+    position: fixed; inset: 0;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+    opacity: 0.5;
+  }
+  .wrap { max-width: 1320px; margin: 0 auto; padding: 24px 28px 60px; position: relative; }
+
+  header { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; padding: 12px 0 26px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .kicker { font-family: var(--mono); font-size: 12px; letter-spacing: 0.35em; color: var(--cyan); text-transform: uppercase; }
+  h1 { font-size: clamp(26px, 4vw, 44px); font-weight: 500; letter-spacing: 0.01em; margin-top: 6px; line-height: 1.05; }
+  h1 .hl { color: var(--amber); font-weight: 700; }
+  h1 .hl2 { color: var(--cyan); font-weight: 700; }
+  .sub { color: var(--text-dim); font-size: 14px; margin-top: 8px; max-width: 660px; line-height: 1.5; }
+  .badge { font-family: var(--mono); font-size: 11px; color: var(--green); border: 1px solid rgba(0,255,163,0.35); padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
+
+  .stage { display: grid; grid-template-columns: 290px 1fr; gap: 18px; margin-top: 22px; }
+  @media (max-width: 920px) { .stage { grid-template-columns: 1fr; } }
+
+  .panel { background: linear-gradient(180deg, var(--panel), var(--ink-2)); border: 1px solid var(--line); border-radius: 12px; padding: 20px; height: fit-content; }
+  .panel h3 { font-size: 12px; letter-spacing: 0.25em; color: var(--text-dim); text-transform: uppercase; margin-bottom: 14px; }
+  .ctl { margin-bottom: 18px; }
+  .ctl label { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 8px; color: var(--text); }
+  .ctl .val { font-family: var(--mono); color: var(--cyan); }
+  .seg { display: flex; gap: 8px; flex-wrap: wrap; }
+  .seg button { flex: 1; min-width: 60px; background: var(--ink-2); color: var(--text-dim); border: 1px solid var(--line-2); border-radius: 8px; padding: 10px 6px; font-family: var(--mono); font-size: 12px; cursor: pointer; transition: all 0.15s; }
+  .seg button:hover { border-color: var(--cyan); color: var(--cyan); }
+  .seg button.active { background: rgba(0,229,255,0.14); border-color: var(--cyan); color: var(--cyan); }
+  .run-btn { width: 100%; margin-top: 6px; background: linear-gradient(135deg, var(--amber), var(--amber-2)); color: var(--ink); border: none; border-radius: 10px; padding: 14px; font-family: var(--ui); font-weight: 700; font-size: 15px; letter-spacing: 0.08em; cursor: pointer; text-transform: uppercase; transition: transform 0.1s, box-shadow 0.2s; }
+  .run-btn:hover { box-shadow: 0 0 28px rgba(255,179,0,0.4); transform: translateY(-1px); }
+  .run-btn:active { transform: translateY(1px); }
+  .run-btn.running { opacity: 0.6; pointer-events: none; }
+  .mode-note { margin-top: 16px; font-size: 12px; color: var(--text-dim); line-height: 1.55; border-top: 1px solid var(--line); padding-top: 14px; }
+  .mode-note code { font-family: var(--mono); color: var(--cyan); font-size: 11px; }
+
+  .demo { background: var(--ink-2); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; position: relative; min-height: 540px; display: flex; flex-direction: column; }
+  .toolbar { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--line); background: rgba(12,17,31,0.85); gap: 10px; flex-wrap: wrap; }
+  .toolbar .t-label { font-family: var(--mono); font-size: 11px; color: var(--text-dim); letter-spacing: 0.18em; text-transform: uppercase; }
+  .toolbar .t-status { font-family: var(--mono); font-size: 11px; color: var(--cyan); }
+  #tree { width: 100%; flex: 1; display: block; cursor: crosshair; background: radial-gradient(760px 420px at 50% 18%, rgba(179,136,255,0.05), transparent 62%); }
+  .overlay-note { position: absolute; left: 14px; bottom: 14px; font-family: var(--mono); font-size: 11px; color: var(--text-dim); background: rgba(7,9,15,0.78); border: 1px solid var(--line); padding: 6px 10px; border-radius: 6px; pointer-events: none; }
+
+  .readouts { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; margin-top: 18px; }
+  .readout { background: linear-gradient(180deg, var(--panel), var(--ink-2)); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .readout .r-label { font-size: 11px; letter-spacing: 0.18em; color: var(--text-dim); text-transform: uppercase; }
+  .readout .r-value { font-family: var(--mono); font-size: 22px; margin-top: 6px; color: var(--cyan); word-break: break-all; }
+  .readout .r-sub { font-size: 11px; color: var(--text-dim); margin-top: 4px; }
+  .readout.amber .r-value { color: var(--amber); }
+  .readout.good .r-value { color: var(--green); }
+  .readout.violet .r-value { color: var(--violet); }
+
+  .charts { display: grid; grid-template-columns: 1.5fr 1fr; gap: 18px; margin-top: 18px; }
+  @media (max-width: 920px) { .charts { grid-template-columns: 1fr; } }
+  .card { background: linear-gradient(180deg, var(--panel), var(--ink-2)); border: 1px solid var(--line); border-radius: 12px; padding: 18px; }
+  .card h4 { font-size: 12px; letter-spacing: 0.22em; color: var(--text-dim); text-transform: uppercase; margin-bottom: 12px; }
+  canvas.plt { width: 100%; height: 250px; display: block; }
+
+  .explain { margin-top: 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 920px) { .explain { grid-template-columns: 1fr; } }
+  .explain .card p { font-size: 14px; line-height: 1.65; }
+  .explain .card .term { color: var(--amber); font-family: var(--mono); font-size: 13px; }
+  .explain .card .math { display: block; font-family: var(--mono); font-size: 13px; color: var(--cyan); background: rgba(0,229,255,0.06); border: 1px solid rgba(0,229,255,0.18); border-radius: 8px; padding: 10px 12px; margin: 10px 0; }
+  #whyText { font-family: var(--mono); font-size: 12px; line-height: 1.7; color: var(--text); background: rgba(0,229,255,0.04); border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin-top: 10px; min-height: 110px; white-space: pre-wrap; }
+  footer { margin-top: 40px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 12px; color: var(--text-dim); display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  footer a { color: var(--cyan); text-decoration: none; }
+  .fn { font-size: 11px; color: var(--text-dim); line-height: 1.6; margin-top: 16px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <div class="kicker">QWAV · Interactive Artifact A2</div>
+      <h1>Q-PNA <span class="hl2">Classifier</span> <span class="hl">Playground</span></h1>
+      <p class="sub">A glass-box classifier. Pick a hierarchical dataset, watch agglomerative clustering build an ultrametric tree in real time, read the cophenetic loss, and click any leaf to see — in plain steps — why it was classified where it was.</p>
+    </div>
+    <div class="badge">GLASS-BOX · tree embedding</div>
+  </header>
+
+  <div class="stage">
+    <aside class="panel">
+      <h3>Experiment Controls</h3>
+      <div class="ctl">
+        <label>Dataset <span class="val" id="dsVal">Nested</span></label>
+        <div class="seg" id="dsSeg">
+          <button data-ds="nested" class="active">Nested</button>
+          <button data-ds="branched">Branched</button>
+          <button data-ds="noisy">Noisy</button>
+        </div>
+      </div>
+      <div class="ctl">
+        <label>Linkage <span class="val" id="lkVal">single</span></label>
+        <div class="seg" id="lkSeg">
+          <button data-lk="single" class="active">single</button>
+          <button data-lk="complete">complete</button>
+          <button data-lk="average">average</button>
+        </div>
+      </div>
+      <div class="ctl">
+        <label>Points <span class="val" id="nVal">24</span></label>
+        <div class="seg" id="nSeg">
+          <button data-n="12">12</button>
+          <button data-n="24" class="active">24</button>
+          <button data-n="36">36</button>
+        </div>
+      </div>
+      <button class="run-btn" id="runBtn">Animate Clustering</button>
+      <button class="run-btn" id="netBtn" style="background:linear-gradient(135deg,var(--violet),#7c4dff);color:var(--ink);">Train Neural Baseline</button>
+      <div class="mode-note">
+        <strong>Glass-box, not black-box:</strong> every classification step is a merge in the
+        tree — inspectable by clicking. The neural baseline below trains a small network on
+        the same labels and returns only probabilities; the tree returns a <em>reason</em>.
+      </div>
+    </aside>
+
+    <section class="demo">
+      <div class="toolbar">
+        <span class="t-label">Dendrogram · ultrametric tree</span>
+        <span class="t-status" id="treeStatus">click a leaf to trace its decision path</span>
+      </div>
+      <canvas id="tree"></canvas>
+      <div class="overlay-note" id="overlayNote">merge height = cophenetic distance</div>
+    </section>
+  </div>
+
+  <div class="readouts">
+    <div class="readout amber">
+      <div class="r-label">Cophenetic loss (1 − CPCC)</div>
+      <div class="r-value" id="cophVal">—</div>
+      <div class="r-sub">tree fidelity vs. raw distances</div>
+    </div>
+    <div class="readout good">
+      <div class="r-label">CPCC</div>
+      <div class="r-value" id="cpccVal">—</div>
+      <div class="r-sub">cophenetic correlation coefficient</div>
+    </div>
+    <div class="readout">
+      <div class="r-label">Clusters found</div>
+      <div class="r-value" id="clustVal">—</div>
+      <div class="r-sub">at default cut height</div>
+    </div>
+    <div class="readout violet">
+      <div class="r-label">Neural baseline accuracy</div>
+      <div class="r-value" id="netAccVal">—</div>
+      <div class="r-sub">linear probe trained on same labels</div>
+    </div>
+  </div>
+
+  <div class="charts">
+    <div class="card">
+      <h4>Tree embedding (LinMap view) — merge heights as coordinates</h4>
+      <canvas class="plt" id="mapChart"></canvas>
+    </div>
+    <div class="card">
+      <h4>Glass-box: why was this point classified here?</h4>
+      <div id="whyText">Click a leaf in the dendrogram to trace its full decision path — the sequence of merges that determined its class.</div>
+    </div>
+  </div>
+
+  <div class="explain">
+    <div class="card">
+      <h4>What Q-PNA-style classification does</h4>
+      <p>
+        The classifier builds a <span class="term">hierarchical tree</span> by repeatedly merging the two
+        closest clusters (agglomerative clustering). The height at which two points first merge is their
+        <span class="term">cophenetic distance</span> — the tree's internal measure of similarity. A high
+        <span class="term">CPCC</span> (close to 1) means the tree faithfully preserves the original geometry.
+      </p>
+      <span class="math">CPCC = Pearson corr( d_ij , c_ij )</span>
+      <p>
+        The <span class="term">LinMap view</span> on the right embeds each point at the merge heights along
+        its path to the root — an ultrametric (tree) coordinate system. This is the "glass box": every
+        classification has a visible, inspectable structure, unlike a weight matrix.
+      </p>
+    </div>
+    <div class="card">
+      <h4>Tree vs. neural baseline</h4>
+      <p>
+        Press <span class="term">Train Neural Baseline</span> to fit a small linear classifier on the
+        same labeled points. It reaches an accuracy score but gives you only
+        <span class="term">probabilities</span> — no reason, no path, no hierarchy.
+      </p>
+      <p style="margin-top:10px;color:var(--text-dim);font-size:13px;">
+        The tree gives an interpretable merge history for every leaf. That is the glass-box property the
+        Q-PNA approach is designed to expose: <em>why</em> a point is grouped with its neighbors, step by step.
+      </p>
+    </div>
+  </div>
+
+  <footer>
+    <span>QWAV Q-PNA Classifier Playground · Strategy 3.0 · Artifact A2</span>
+    <span>Generated with <a href="https://github.com/ThinkInAIXYZ/deepchat">DeepChat</a> | All page content is AI-generated and for reference only</span>
+  </footer>
+  <p class="fn">† Pedagogical model: demonstrates interpretable hierarchical (ultrametric) classification and compares it with a simple neural baseline. It is not a claim about proprietary Q-PNA software or physical hardware. See QWAV Research Specification (Q-PNA v2.0) for the underlying method.</p>
+</div>
+
+<script>
+"use strict";
+/* ============ STATE ============ */
+const S = {
+  ds: "nested",
+  lk: "single",
+  n: 24,
+  running: false,
+  points: [],
+  merges: [],
+  cophenetic: [],
+  hover: null,
+  sel: null,
+  netAcc: null,
+  _lin: null
+};
+
+/* ============ CANVAS ============ */
+const treeCv = document.getElementById("tree");
+const tctx = treeCv.getContext("2d");
+const mapCv = document.getElementById("mapChart");
+const mctx = mapCv.getContext("2d");
+
+function fitCanvas(cv, ctx) {
+  const r = cv.getBoundingClientRect();
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const w = Math.max(200, Math.floor(r.width));
+  const h = Math.max(200, Math.floor(r.height));
+  if (cv.width !== w * dpr || cv.height !== h * dpr) {
+    cv.width = w * dpr;
+    cv.height = h * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  return { w, h };
+}
+
+/* ============ DATA ============ */
+function gauss() {
+  let u = 0, v = 0;
+  while (u === 0) u = Math.random();
+  while (v === 0) v = Math.random();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+function makeData(ds, n) {
+  const pts = [];
+  if (ds === "nested") {
+    const levels = [1, 3, 8];
+    let id = 0;
+    levels.forEach((count, li) => {
+      const rad = 0.14 + li * 0.2;
+      for (let k = 0; k < count; k++) {
+        const a = (k / count) * Math.PI * 2 + li * 0.7;
+        pts.push({ x: 0.5 + rad * Math.cos(a) + gauss() * 0.012, y: 0.5 + rad * Math.sin(a) + gauss() * 0.012, label: li, id: id++ });
+      }
+    });
+  } else if (ds === "branched") {
+    const centers = [[0.32,0.34],[0.62,0.28],[0.3,0.68],[0.68,0.66]];
+    const group = [[0,1],[2,3]];
+    for (let i = 0; i < 4; i++) {
+      const per = Math.max(2, Math.floor(n / 4));
+      for (let k = 0; k < per; k++) {
+        pts.push({ x: centers[i][0] + gauss()*0.05, y: centers[i][1] + gauss()*0.05, label: group.findIndex(g => g.includes(i)), id: pts.length });
+      }
+    }
+  } else {
+    for (let i = 0; i < n; i++) {
+      pts.push({ x: Math.random(), y: Math.random(), label: (Math.random()<0.5?0:1), id: i });
+    }
+  }
+  while (pts.length > n) pts.pop();
+  pts.forEach((p, i) => { p.id = i; });
+  return pts;
+}
+
+/* ============ CLUSTERING ============ */
+function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+
+function agglomerate(pts, linkage) {
+  const n = pts.length;
+  const d = Array.from({ length: n }, () => new Array(n).fill(0));
+  for (let i = 0; i < n; i++)
+    for (let j = i + 1; j < n; j++) d[i][j] = d[j][i] = dist(pts[i], pts[j]);
+  const active = pts.map((p, i) => ({ ids: [i], x: p.x, y: p.y }));
+  const merges = [];
+  const cophen = Array.from({ length: n }, () => new Array(n).fill(0));
+  let nextId = n;
+
+  while (active.length > 1) {
+    let bi = -1, bj = -1, best = Infinity;
+    for (let i = 0; i < active.length; i++)
+      for (let j = i + 1; j < active.length; j++) {
+        let v;
+        if (linkage === "single") {
+          v = Infinity;
+          active[i].ids.forEach(a => active[j].ids.forEach(b => { if (d[a][b] < v) v = d[a][b]; }));
+        } else if (linkage === "complete") {
+          v = -Infinity;
+          active[i].ids.forEach(a => active[j].ids.forEach(b => { if (d[a][b] > v) v = d[a][b]; }));
+        } else {
+          let sum = 0, cnt = 0;
+          active[i].ids.forEach(a => active[j].ids.forEach(b => { sum += d[a][b]; cnt++; }));
+          v = sum / cnt;
+        }
+        if (v < best) { best = v; bi = i; bj = j; }
+      }
+    const A = active[bi], B = active[bj];
+    const m = { a: A.ids.slice(), b: B.ids.slice(), h: best, size: A.ids.length + B.ids.length, id: nextId++ };
+    merges.push(m);
+    A.ids.forEach(a => B.ids.forEach(b => { cophen[a][b] = cophen[b][a] = best; }));
+    const merged = { ids: A.ids.concat(B.ids), x: (A.x + B.x) / 2, y: (A.y + B.y) / 2 };
+    active.splice(bi, 1);
+    if (bj > bi) bj--;
+    active.splice(bj, 1);
+    active.push(merged);
+  }
+  return { merges, cophen };
+}
+
+/* ============ CPCC ============ */
+function cpcc(pts, cophen) {
+  const n = pts.length;
+  let sx = 0, sy = 0, sxy = 0, sxx = 0, syy = 0, cnt = 0;
+  for (let i = 0; i < n; i++)
+    for (let j = i + 1; j < n; j++) {
+      const x = dist(pts[i], pts[j]);
+      const y = cophen[i][j];
+      sx += x; sy += y; sxy += x*y; sxx += x*x; syy += y*y; cnt++;
+    }
+  if (cnt === 0) return 0;
+  const num = cnt * sxy - sx * sy;
+  const den = Math.sqrt((cnt*sxx - sx*sx) * (cnt*syy - sy*sy));
+  return den === 0 ? 0 : num / den;
+}
+
+/* ============ LAYOUT ============ */
+function layoutTree(merges, n) {
+  const leaves = Array.from({ length: n }, (_, i) => ({ type: "leaf", id: i, x: i }));
+  let maxH = 0;
+  merges.forEach(m => { if (m.h > maxH) maxH = m.h; });
+  if (maxH === 0) maxH = 1;
+  merges.forEach(m => { m.hNorm = m.h / maxH; });
+  return { leaves, maxH };
+}
+
+/* ============ RENDER TREE ============ */
+function renderTree(animStep) {
+  const { w, h } = fitCanvas(treeCv, tctx);
+  tctx.clearRect(0, 0, w, h);
+  const n = S.points.length;
+  const { merges } = S;
+  if (merges.length === 0) {
+    tctx.fillStyle = "#8195c0";
+    tctx.font = "12px Cascadia Code, Consolas, monospace";
+    tctx.textAlign = "center";
+    tctx.fillText("Press Animate Clustering to build the tree", w/2, h/2);
+    return;
+  }
+  const visible = animStep === undefined ? merges.length : Math.min(animStep, merges.length);
+  const { maxH } = layoutTree(merges, n);
+  const padL = 46, padR = 20, padT = 20, padB = 30;
+  const x0 = padL, x1 = w - padR;
+  const y0 = padT, y1 = h - padB;
+
+  merges.slice(0, visible).forEach(m => {
+    const leaves = m.a.concat(m.b);
+    const minL = Math.min(...leaves);
+    const maxL = Math.max(...leaves);
+    const hy = y1 - (m.h / maxH) * (y1 - y0);
+    tctx.strokeStyle = "rgba(44,64,112,0.8)";
+    tctx.lineWidth = 1.2;
+    tctx.beginPath();
+    tctx.moveTo(x0 + (minL + 0.5) / n * (x1 - x0), hy);
+    tctx.lineTo(x0 + (maxL + 0.5) / n * (x1 - x0), hy);
+    tctx.stroke();
+    tctx.strokeStyle = "rgba(28,44,74,0.5)";
+    tctx.lineWidth = 0.8;
+    leaves.forEach(l => {
+      const lx = x0 + (l + 0.5) / n * (x1 - x0);
+      tctx.beginPath();
+      tctx.moveTo(lx, y1);
+      tctx.lineTo(lx, hy);
+      tctx.stroke();
+    });
+  });
+
+  // leaf labels + selection markers
+  for (let l = 0; l < n; l++) {
+    const lx = x0 + (l + 0.5) / n * (x1 - x0);
+    const isSel = S.sel && S.sel.leaf === l;
+    const isHover = S.hover && S.hover.leaf === l;
+    if (isSel || isHover) {
+      tctx.fillStyle = isSel ? "#ffb300" : "#00e5ff";
+      tctx.beginPath();
+      tctx.arc(lx, y1 - 4, 5, 0, Math.PI * 2);
+      tctx.fill();
+    }
+    tctx.fillStyle = isSel ? "#ffb300" : "#8195c0";
+    tctx.font = "9px Cascadia Code, Consolas, monospace";
+    tctx.textAlign = "center";
+    tctx.fillText(String(l), lx, h - 12);
+  }
+
+  if (animStep !== undefined && animStep < merges.length) {
+    tctx.fillStyle = "rgba(0,229,255,0.7)";
+    tctx.font = "11px Cascadia Code, Consolas, monospace";
+    tctx.fillText(`building… ${animStep}/${merges.length}`, x0, 16);
+  }
+}
+
+/* ============ RENDER MAP ============ */
+function renderMap() {
+  const { w, h } = fitCanvas(mapCv, mctx);
+  mctx.clearRect(0, 0, w, h);
+  const n = S.points.length;
+  const pad = 26;
+  const x0 = pad, x1 = w - pad, y0 = pad, y1 = h - pad;
+
+  if (S.merges.length === 0) {
+    mctx.fillStyle = "#8195c0";
+    mctx.font = "12px Cascadia Code, Consolas, monospace";
+    mctx.textAlign = "center";
+    mctx.fillText("tree embedding appears after clustering", w/2, h/2);
+    return;
+  }
+
+  const depth = new Array(n).fill(0);
+  S.merges.forEach(m => { m.a.forEach(l => depth[l]++); });
+  const maxD = Math.max(1, ...depth);
+
+  S.points.forEach(p => {
+    const cx = x0 + p.x * (x1 - x0);
+    const cy = y0 + (1 - depth[p.id] / maxD) * (y1 - y0);
+    const isSel = S.sel && S.sel.leaf === p.id;
+    mctx.beginPath();
+    mctx.arc(cx, cy, isSel ? 5 : 3.5, 0, Math.PI * 2);
+    mctx.fillStyle = isSel ? "#ffb300" : (p.label === 0 ? "#00e5ff" : p.label === 1 ? "#b388ff" : "#00ffa3");
+    mctx.shadowColor = mctx.fillStyle;
+    mctx.shadowBlur = isSel ? 14 : 6;
+    mctx.fill();
+    mctx.shadowBlur = 0;
+  });
+  mctx.fillStyle = "#8195c0";
+  mctx.font = "10px Cascadia Code, Consolas, monospace";
+  mctx.textAlign = "center";
+  mctx.fillText("x = original position · y = tree depth (merges to root)", w/2, h - 8);
+}
+
+/* ============ WHY PATH ============ */
+function whyText(leafId) {
+  if (S.merges.length === 0) return "Build the tree first.";
+  const lines = [];
+  let cur = [leafId];
+  let step = 0;
+  S.merges.forEach(m => {
+    const touches = m.a.some(l => cur.includes(l)) || m.b.some(l => cur.includes(l));
+    if (touches) {
+      const joined = m.a.concat(m.b);
+      const siblings = joined.filter(l => !cur.includes(l));
+      lines.push(`merge ${step}: {${cur.join(',')}} joins {${siblings.join(',')}} at height ${m.h.toFixed(3)}`);
+      cur = joined;
+      step++;
+    }
+  });
+  if (lines.length === 0) lines.push("no merges involve this leaf");
+  lines.push(`final class: leaf ${leafId} is grouped with {${cur.filter(l=>l!==leafId).join(',')}}`);
+  return lines.join("\n");
+}
+
+/* ============ NEURAL BASELINE ============ */
+function trainNet() {
+  const pts = S.points;
+  const n = pts.length;
+  if (n < 2) return;
+  const X = pts.map(p => [p.x, p.y]);
+  const classes = [...new Set(pts.map(p => p.label))];
+  if (classes.length < 2) { S.netAcc = null; updateReadouts(); return; }
+  const T = pts.map(p => p.label === classes[0] ? 0 : 1);
+  function sig(x) { return 1/(1+Math.exp(-x)); }
+  let w0 = Math.random()-0.5, w1 = Math.random()-0.5, wb = 0;
+  const lr = 0.5, epochs = 400;
+  for (let it = 0; it < epochs; it++) {
+    let gw0 = 0, gw1 = 0, gb = 0;
+    X.forEach((x, i) => {
+      const p = sig(w0*x[0] + w1*x[1] + wb);
+      const err = p - T[i];
+      gw0 += err * x[0]; gw1 += err * x[1]; gb += err;
+    });
+    w0 -= lr * gw0 / n; w1 -= lr * gw1 / n; wb -= lr * gb / n;
+  }
+  let correct = 0;
+  X.forEach((x, i) => {
+    const p = sig(w0*x[0] + w1*x[1] + wb) > 0.5 ? 1 : 0;
+    if (p === T[i]) correct++;
+  });
+  S.netAcc = correct / n;
+  updateReadouts();
+}
+
+/* ============ UI ============ */
+function fmt(v) {
+  if (v === null || v === undefined || isNaN(v)) return "—";
+  if (v >= 1) return v.toFixed(4);
+  if (v >= 1e-3) return v.toPrecision(4);
+  return v.toExponential(2);
+}
+function updateReadouts() {
+  document.getElementById("dsVal").textContent = S.ds[0].toUpperCase() + S.ds.slice(1);
+  document.getElementById("lkVal").textContent = S.lk;
+  document.getElementById("nVal").textContent = S.n;
+  if (S.merges.length > 0) {
+    const c = cpcc(S.points, S.cophenetic);
+    document.getElementById("cophVal").textContent = fmt(1 - c);
+    document.getElementById("cpccVal").textContent = fmt(c);
+    const maxH = Math.max(...S.merges.map(m => m.h));
+    const cut = maxH * 0.5;
+    let clusters = S.points.length;
+    S.merges.forEach(m => { if (m.h <= cut) clusters--; });
+    document.getElementById("clustVal").textContent = Math.max(1, clusters);
+  } else {
+    document.getElementById("cophVal").textContent = "—";
+    document.getElementById("cpccVal").textContent = "—";
+    document.getElementById("clustVal").textContent = "—";
+  }
+  document.getElementById("netAccVal").textContent = S.netAcc === null ? "—" : (S.netAcc*100).toFixed(1) + "%";
+  renderTree(); renderMap();
+}
+
+/* ============ ANIMATION ============ */
+async function animate() {
+  if (S.running) return;
+  S.running = true;
+  const btn = document.getElementById("runBtn");
+  btn.classList.add("running");
+  btn.textContent = "Building…";
+  await new Promise(r => setTimeout(r, 30));
+
+  S.points = makeData(S.ds, S.n);
+  const { merges, cophen } = agglomerate(S.points, S.lk);
+  S.merges = merges;
+  S.cophenetic = cophen;
+  S.sel = null; S.hover = null;
+  document.getElementById("treeStatus").textContent = "building tree…";
+  const total = merges.length;
+  for (let step = 1; step <= total; step += Math.max(1, Math.floor(total / 26))) {
+    renderTree(step);
+    await new Promise(r => setTimeout(r, 45));
+  }
+  renderTree();
+  document.getElementById("treeStatus").textContent = "click a leaf to trace its decision path";
+  btn.classList.remove("running");
+  btn.textContent = "Animate Clustering";
+  S.running = false;
+  updateReadouts();
+}
+
+/* ============ INTERACTION ============ */
+function rebuild() {
+  S.merges = []; S.cophenetic = []; S.netAcc = null; S.sel = null; S.hover = null;
+  S.points = makeData(S.ds, S.n);
+  document.getElementById("whyText").textContent = "Click a leaf in the dendrogram to trace its full decision path.";
+  updateReadouts();
+}
+document.getElementById("dsSeg").addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  S.ds = b.dataset.ds;
+  document.querySelectorAll("#dsSeg button").forEach(x => x.classList.toggle("active", x === b));
+  rebuild();
+});
+document.getElementById("lkSeg").addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  S.lk = b.dataset.lk;
+  document.querySelectorAll("#lkSeg button").forEach(x => x.classList.toggle("active", x === b));
+  rebuild();
+});
+document.getElementById("nSeg").addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  S.n = parseInt(b.dataset.n);
+  document.querySelectorAll("#nSeg button").forEach(x => x.classList.toggle("active", x === b));
+  rebuild();
+});
+document.getElementById("runBtn").addEventListener("click", animate);
+document.getElementById("netBtn").addEventListener("click", trainNet);
+
+treeCv.addEventListener("mousemove", (e) => {
+  const rect = treeCv.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const { w } = fitCanvas(treeCv, tctx);
+  if (S.merges.length === 0) return;
+  const n = S.points.length;
+  const padL = 46, padR = 20;
+  const x0 = padL, x1 = w - padR;
+  let best = null, bestD = 26;
+  for (let l = 0; l < n; l++) {
+    const lx = x0 + (l + 0.5) / n * (x1 - x0);
+    const d = Math.abs(mx - lx);
+    if (d < bestD) { bestD = d; best = l; }
+  }
+  S.hover = best !== null ? { leaf: best } : null;
+  renderTree();
+});
+treeCv.addEventListener("mouseleave", () => { S.hover = null; renderTree(); });
+treeCv.addEventListener("click", () => {
+  if (S.hover) {
+    S.sel = { leaf: S.hover.leaf };
+    document.getElementById("treeStatus").textContent = `decision path for leaf ${S.sel.leaf}:`;
+    document.getElementById("whyText").textContent = whyText(S.sel.leaf);
+  } else {
+    S.sel = null;
+    document.getElementById("treeStatus").textContent = "click a leaf to trace its decision path";
+  }
+  renderTree(); renderMap();
+});
+
+window.addEventListener("resize", () => { renderTree(); renderMap(); });
+
+/* ============ INIT ============ */
+S.points = makeData(S.ds, S.n);
+updateReadouts();
+</script>
+</body>
+</html>
