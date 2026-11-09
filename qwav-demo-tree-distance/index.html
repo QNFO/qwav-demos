@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tree Distance Sandbox — Cophenetic, Euclidean & Ultrametric Distances</title>
+<style>
+  :root {
+    --ink: #ffffff; --ink-2: #f8f9fa; --panel: #f8f9fa; --line: #dee2e6;
+    --line-2: #ced4da; --text: #212529; --text-dim: #6c757d;
+    --cyan: #1a73e8; --amber: #b06000; --violet: #6f42c1; --green: #188038;
+    --mono: "JetBrains Mono",Consolas,monospace;
+    --ui: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    --radius: 8px; --radius-sm: 5px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:radial-gradient(1100px 560px at 72% -12%,rgba(26,115,232,0.05),transparent 60%),radial-gradient(800px 480px at 8% 112%,rgba(111,66,193,0.04),transparent 55%),var(--ink);color:var(--text);font-family:var(--ui);min-height:100vh}
+  .wrap{max-width:1280px;margin:0 auto;padding:20px 24px 40px}
+  .header{padding:18px 0 10px;border-bottom:1px solid var(--line);margin-bottom:18px}
+  .header h1{font-family:Georgia,"Times New Roman",serif;font-size:1.35rem;font-weight:600;color:var(--amber);letter-spacing:-0.01em}
+  .header .tagline{font-size:0.85rem;color:var(--text-dim);margin-top:4px}
+  .grid{display:grid;grid-template-columns:260px 1fr 280px;gap:18px;align-items:start}
+  @media(max-width:1100px){.grid{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px}
+  .panel h2{font-family:var(--mono);font-size:0.8rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);margin-bottom:10px;border-bottom:1px solid var(--line);padding-bottom:8px}
+  .seg{display:flex;flex-wrap:wrap;gap:5px;margin:8px 0}
+  .seg button{background:var(--ink-2);border:1px solid var(--line);color:var(--text-dim);font-family:var(--mono);font-size:0.78rem;padding:6px 12px;border-radius:var(--radius-sm);cursor:pointer;transition:all 0.15s;min-width:36px;text-align:center}
+  .seg button:hover{color:var(--text);border-color:var(--line-2);background:rgba(176,96,0,0.06)}
+  .seg button.active{background:rgba(176,96,0,0.12);color:var(--amber);border-color:var(--amber);box-shadow:0 0 8px rgba(176,96,0,0.15)}
+  .seg button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+  .readout-row{display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;border-bottom:1px solid rgba(29,42,70,0.5)}
+  .readout-row:last-child{border-bottom:none}
+  .readout-label{font-size:0.75rem;color:var(--text-dim)}
+  .readout-val{font-family:var(--mono);font-size:0.85rem;color:var(--text)}
+  .readout-val.amber{color:var(--amber)}
+  .readout-val.violet{color:var(--violet)}
+  .readout-val.cyan{color:var(--cyan)}
+  .readout-val.big{font-size:1.15rem;font-weight:600}
+  .canvas-panel canvas{width:100%;display:block;border-radius:4px}
+  .formula-box{background:var(--ink-2);border:1px solid var(--line);border-radius:var(--radius-sm);padding:12px 14px;font-family:var(--mono);font-size:0.73rem;color:var(--text-dim);line-height:1.7;margin-top:10px}
+  .formula-box .eq{color:var(--amber)}
+  .formula-box .var{color:var(--violet)}
+  .action-bar{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+  .action-bar button{background:var(--ink-2);border:1px solid var(--line);color:var(--text-dim);font-family:var(--ui);font-size:0.73rem;padding:5px 10px;border-radius:var(--radius-sm);cursor:pointer;transition:all 0.15s}
+  .action-bar button:hover{color:var(--text);border-color:var(--line-2)}
+  .action-bar button.primary{background:rgba(176,96,0,0.1);color:var(--amber);border-color:var(--amber)}
+  .tour-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:100;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity 0.3s}
+  .tour-overlay.active{opacity:1;pointer-events:all}
+  .tour-card{background:var(--panel);border:1px solid var(--amber);border-radius:var(--radius);padding:24px 28px;max-width:420px;text-align:center;box-shadow:0 0 40px rgba(176,96,0,0.15)}
+  .tour-card h3{font-family:var(--mono);color:var(--amber);font-size:1rem;margin-bottom:8px}
+  .tour-card p{color:var(--text-dim);font-size:0.85rem;line-height:1.5;margin-bottom:16px}
+  .tour-card .step-dots{display:flex;justify-content:center;gap:6px;margin-bottom:14px}
+  .tour-card .step-dot{width:6px;height:6px;border-radius:50%;background:var(--line-2);transition:all 0.2s}
+  .tour-card .step-dot.active{background:var(--amber);box-shadow:0 0 6px rgba(176,96,0,0.4)}
+  .tour-card button{background:var(--amber);border:none;color:var(--ink);font-family:var(--ui);font-size:0.82rem;padding:8px 24px;border-radius:var(--radius-sm);cursor:pointer;font-weight:600}
+  .tour-card .skip{background:none;color:var(--text-dim);border:none;margin-left:10px;font-size:0.75rem;cursor:pointer}
+  .toast{position:fixed;bottom:24px;right:24px;background:var(--panel);border:1px solid var(--green);color:var(--green);padding:10px 18px;border-radius:var(--radius-sm);font-family:var(--mono);font-size:0.73rem;z-index:200;opacity:0;transform:translateY(20px);transition:all 0.3s;pointer-events:none}
+  .toast.show{opacity:1;transform:translateY(0)}
+  .seed-row{display:flex;align-items:center;gap:6px;margin-top:8px}
+  .seed-row input{background:var(--ink-2);border:1px solid var(--line);color:var(--text);font-family:var(--mono);font-size:0.73rem;padding:4px 8px;border-radius:var(--radius-sm);width:80px}
+  .seed-row input:focus{outline:none;border-color:var(--amber)}
+  .seed-row label{font-size:0.7rem;color:var(--text-dim)}
+  .leaf-badge{display:inline-block;padding:1px 6px;border-radius:3px;font-family:var(--mono);font-size:0.7rem;margin:0 2px}
+  .leaf-A{background:rgba(26,115,232,0.15);color:var(--cyan)}
+  .leaf-B{background:rgba(176,96,0,0.15);color:var(--amber)}
+  .footer{margin-top:20px;padding-top:12px;border-top:1px solid var(--line);font-size:0.65rem;color:var(--text-dim);text-align:center}
+  .footer a{color:var(--amber);text-decoration:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="header">
+  <h1>Tree Distance Sandbox — Cophenetic, Euclidean & Ultrametric</h1>
+  <div class="tagline">Compare three distance measures on a weighted tree and discover triadic rigidity: among any three points, the two largest ultrametric distances are equal</div>
+</div>
+
+<div class="grid">
+  <!-- LEFT -->
+  <div style="display:flex;flex-direction:column;gap:12px">
+    <div class="panel">
+      <h2>Tree Parameters</h2>
+      <label style="font-size:0.7rem;color:var(--text-dim);margin:8px 0 4px;display:block">Prime (p)</label>
+      <div class="seg" id="pSeg">
+        <button data-p="2">p = 2</button>
+        <button data-p="3" class="active">p = 3</button>
+        <button data-p="5">p = 5</button>
+      </div>
+      <label style="font-size:0.7rem;color:var(--text-dim);margin:8px 0 4px;display:block">Tree Depth (d)</label>
+      <div class="seg" id="dSeg">
+        <button data-d="3">3</button>
+        <button data-d="4" class="active">4</button>
+        <button data-d="5">5</button>
+        <button data-d="6">6</button>
+      </div>
+      <div style="margin-top:10px;font-size:0.73rem;color:var(--text-dim)">
+        <span class="leaf-badge leaf-A">A</span> Leaf A (cyan)
+        <span class="leaf-badge leaf-B">B</span> Leaf B (amber)
+      </div>
+      <div class="action-bar">
+        <button id="randomBtn" class="primary">🎲 Random Pair</button>
+        <button id="resetBtn">Reset</button>
+        <button id="verifyBtn">✓ Verify</button>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Distances</h2>
+      <div class="readout-row"><span class="readout-label">Cophenetic Distance</span><span class="readout-val cyan big" id="copVal">—</span></div>
+      <div class="readout-row"><span class="readout-label">Euclidean Distance</span><span class="readout-val violet big" id="eucVal">—</span></div>
+      <div class="readout-row"><span class="readout-label">Ultrametric Distance</span><span class="readout-val amber big" id="ultVal">—</span></div>
+      <div class="readout-row"><span class="readout-label">Triadic Rigidity</span><span class="readout-val" id="triVal">—</span></div>
+      <div class="formula-box">
+        <div class="eq">d<sub>coph</sub>(a,b) = depth(LCA(a,b))</div>
+        <div class="eq">d<sub>ultra</sub>(a,b) = p<sup>−depth(LCA(a,b))</sup></div>
+        <div class="eq">d<sub>eucl</sub>(a,b) = √(Σ (a<sub>i</sub>−b<sub>i</sub>)²)</div>
+        <div class="comment" style="margin-top:4px"><span class="var">Triadic rigidity:</span> among any 3 leaves, the two largest ultrametric distances are equal. Guaranteed by the strong triangle inequality.</div>
+      </div>
+      <div class="seed-row"><label>Seed:</label><input type="number" id="seedInput" value="42" min="0"><button id="reseedBtn" style="font-size:0.65rem;padding:3px 8px">Apply</button></div>
+    </div>
+  </div>
+
+  <!-- CENTER: Tree -->
+  <div class="panel canvas-panel" style="min-height:520px">
+    <h2>Weighted Tree — <span id="dpDisplay">p=3, d=4</span></h2>
+    <canvas id="treeCanvas"></canvas>
+  </div>
+
+  <!-- RIGHT: Distance chart -->
+  <div class="panel canvas-panel">
+    <h2>Distance Comparison</h2>
+    <canvas id="distChart"></canvas>
+  </div>
+</div>
+
+<div class="footer">QWAV Artifact A4 — <a href="https://github.com/QNFO/qwav-demo-tree-distance">Source</a> | <a href="#" id="tourTrigger">Tour</a></div>
+</div>
+
+<div class="tour-overlay" id="tourOverlay"><div class="tour-card"><h3 id="tourTitle"></h3><p id="tourBody"></p><div class="step-dots" id="tourDots"></div><button id="tourNext">Next</button><button class="skip" id="tourSkip">Skip</button></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+let rng = mulberry32(42);
+
+const S = { p: 3, d: 4, seed: 42, tree: [], weights: [], selA: null, selB: null, copheneticDist: 0, euclideanDist: 0, ultrametricDist: 0 };
+
+function buildTree(p, d) {
+  const nodes = [];
+  const root = { depth: 0, index: 0, parent: null, children: [], slot: 0, leaf: d===0 };
+  nodes.push(root);
+  (function build(node, depth, slot) {
+    if (depth >= d) return;
+    for (let k = 0; k < p; k++) {
+      const child = { depth: depth+1, index: nodes.length, parent: node, children: [], slot: slot*p+k, leaf: depth+1===d };
+      nodes.push(child); node.children.push(child);
+      build(child, depth+1, child.slot);
+    }
+  })(root, 0, 0);
+  return nodes;
+}
+
+function assignWeights() {
+  S.weights = new Array(S.tree.length).fill(0);
+  S.tree.forEach(n => { if (!n.leaf && n.depth > 0) S.weights[n.index] = 0.5 + rng() * 2; });
+}
+
+function lca(a, b) {
+  const pathA = []; let n = a; while (n) { pathA.unshift(n); n = n.parent; }
+  const pathB = []; n = b; while (n) { pathB.unshift(n); n = n.parent; }
+  let lca = null;
+  for (let i = 0; i < Math.min(pathA.length, pathB.length); i++) {
+    if (pathA[i] === pathB[i]) lca = pathA[i]; else break;
+  }
+  return lca;
+}
+
+function copheneticDist(a, b) { return (lca(a,b)||S.tree[0]).depth; }
+function ultrametricDist(a, b) { return Math.pow(S.p, -(lca(a,b)||S.tree[0]).depth); }
+
+function euclideanDist(a, b) {
+  // Compute Euclidean distance between leaf positions in embedding
+  const dx = (a.slot - b.slot) * 0.3;
+  const dy = (a.depth - b.depth) * 0.5;
+  return Math.sqrt(dx*dx + dy*dy);
+}
+
+function randomPair() {
+  const leaves = S.tree.filter(n => n.leaf);
+  S.selA = leaves[Math.floor(rng() * leaves.length)];
+  do { S.selB = leaves[Math.floor(rng() * leaves.length)]; } while (S.selB === S.selA && leaves.length > 1);
+  computeDistances();
+  renderTree(); renderChart(); updateReadouts();
+}
+
+function computeDistances() {
+  if (!S.selA || !S.selB) { S.copheneticDist = S.euclideanDist = S.ultrametricDist = 0; return; }
+  S.copheneticDist = copheneticDist(S.selA, S.selB);
+  S.euclideanDist = euclideanDist(S.selA, S.selB);
+  S.ultrametricDist = ultrametricDist(S.selA, S.selB);
+}
+
+function updateReadouts() {
+  document.getElementById("copVal").textContent = S.copheneticDist.toFixed(2);
+  document.getElementById("eucVal").textContent = S.euclideanDist.toFixed(3);
+  document.getElementById("ultVal").textContent = S.ultrametricDist < 0.001 ? S.ultrametricDist.toExponential(2) : S.ultrametricDist.toFixed(4);
+  document.getElementById("triVal").textContent = "Check 3-leaves ⬇";
+  document.getElementById("dpDisplay").textContent = `p=${S.p}, d=${S.d}`;
+}
+
+function fitCanvas(cv, ctx) {
+  const r = cv.getBoundingClientRect();
+  const dpr = Math.min(window.devicePixelRatio||1,2);
+  const w = Math.max(200, Math.floor(r.width)), h = Math.max(200, Math.floor(r.height));
+  if (cv.width !== w*dpr || cv.height !== h*dpr) { cv.width = w*dpr; cv.height = h*dpr; }
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  return { w, h };
+}
+
+function renderTree() {
+  const cv = document.getElementById("treeCanvas"), ctx = cv.getContext("2d");
+  const { w, h } = fitCanvas(cv, ctx); ctx.clearRect(0, 0, w, h);
+  const padL = 20, padR = 20, padT = 24, padB = 20;
+  const plotW = w-padL-padR, plotH = h-padT-padB;
+  const leaves = S.tree.filter(n => n.leaf);
+  const leafSpacing = plotW / (leaves.length+1);
+  const depthH = plotH / S.d;
+
+  const pos = [];
+  leaves.forEach((n,i) => pos[n.index] = { x: padL+(i+1)*leafSpacing, y: padT+plotH });
+  for (let dep = S.d-1; dep >= 0; dep--) {
+    S.tree.filter(n => n.depth===dep && !n.leaf).forEach(n => {
+      pos[n.index] = { x: n.children.reduce((s,c) => s+pos[c.index].x, 0)/n.children.length, y: padT+dep*depthH };
+    });
+  }
+
+  // Edges
+  ctx.strokeStyle = "rgba(29,42,70,0.5)"; ctx.lineWidth = 1;
+  S.tree.forEach(n => { if (!n.parent) return;
+    ctx.beginPath(); ctx.moveTo(pos[n.parent.index].x, pos[n.parent.index].y); ctx.lineTo(pos[n.index].x, pos[n.index].y); ctx.stroke();
+  });
+
+  // Nodes
+  S.tree.forEach(n => {
+    const isA = n === S.selA, isB = n === S.selB;
+    ctx.beginPath(); ctx.arc(pos[n.index].x, pos[n.index].y, isA||isB ? 6 : n.leaf?3.5:3, 0, Math.PI*2);
+    if (isA) ctx.fillStyle = "rgba(26,115,232,0.9)";
+    else if (isB) ctx.fillStyle = "rgba(176,96,0,0.9)";
+    else ctx.fillStyle = n.leaf ? "rgba(111,66,193,0.5)" : "rgba(130,149,192,0.4)";
+    ctx.fill();
+  });
+
+  // Highlight LCA
+  if (S.selA && S.selB) {
+    const l = lca(S.selA, S.selB);
+    if (l) { ctx.beginPath(); ctx.arc(pos[l.index].x, pos[l.index].y, 8, 0, Math.PI*2); ctx.strokeStyle = "rgba(24,128,56,0.6)"; ctx.lineWidth = 2; ctx.stroke(); }
+  }
+
+  // Labels
+  if (S.selA) { ctx.fillStyle = "rgba(26,115,232,0.9)"; ctx.font = "11px Cascadia Code, monospace"; ctx.textAlign = "center"; ctx.fillText("A", pos[S.selA.index].x, pos[S.selA.index].y-8); }
+  if (S.selB) { ctx.fillStyle = "rgba(176,96,0,0.9)"; ctx.font = "11px Cascadia Code, monospace"; ctx.fillText("B", pos[S.selB.index].x, pos[S.selB.index].y-8); }
+}
+
+function renderChart() {
+  const cv = document.getElementById("distChart"), ctx = cv.getContext("2d");
+  const { w, h } = fitCanvas(cv, ctx); ctx.clearRect(0, 0, w, h);
+  if (!S.selA || !S.selB) { ctx.fillStyle = "var(--text-dim)"; ctx.font = "12px sans-serif"; ctx.textAlign = "center"; ctx.fillText("Select two leaves on the tree", w/2, h/2); return; }
+
+  const padL = 60, padR = 20, padT = 20, padB = 20;
+  const barW = 40, gap = 20, barH = h-padT-padB-40;
+  const bars = [
+    { label: "Cophenetic", val: S.copheneticDist, max: S.d, color: "rgba(26,115,232,0.7)", x: padL },
+    { label: "Euclidean", val: S.euclideanDist, max: 3, color: "rgba(111,66,193,0.7)", x: padL+barW+gap },
+    { label: "Ultrametric", val: S.ultrametricDist, max: 1, color: "rgba(176,96,0,0.7)", x: padL+2*(barW+gap) },
+  ];
+
+  bars.forEach(b => {
+    const bh = (b.val / b.max) * barH;
+    ctx.fillStyle = b.color;
+    ctx.fillRect(b.x, padT+barH-bh, barW, bh);
+    ctx.fillStyle = "var(--text-dim)"; ctx.font = "9px Cascadia Code, monospace"; ctx.textAlign = "center";
+    ctx.fillText(b.val.toFixed(3), b.x+barW/2, padT+barH-bh-4);
+    ctx.fillText(b.label, b.x+barW/2, padT+barH+14);
+  });
+}
+
+function verifyMath() {
+  const results = [];
+  const check = (name, fn) => { try { const r = fn(); results.push({name,status:r===true?"PASS":"FAIL",detail:r===true?"":String(r)}); return r===true; } catch(e) { results.push({name,status:"ERROR",detail:e.message}); return false; } };
+
+  check("Cophenetic >= 0", () => S.copheneticDist >= 0 ? true : `dist=${S.copheneticDist}`);
+  check("Euclidean >= 0", () => S.euclideanDist >= 0 ? true : `dist=${S.euclideanDist}`);
+  check("Ultrametric >= 0", () => S.ultrametricDist >= 0 ? true : `dist=${S.ultrametricDist}`);
+  check("Ultrametric <= 1", () => S.ultrametricDist <= 1 ? true : `dist=${S.ultrametricDist}`);
+  check("Cophenetic <= depth", () => S.copheneticDist <= S.d ? true : `dist=${S.copheneticDist} > d=${S.d}`);
+
+  // Triadic rigidity: among any 3 leaves, 2 largest ultrametric distances are equal
+  const leaves = S.tree.filter(n => n.leaf);
+  if (leaves.length >= 3) {
+    const a=leaves[0], b=leaves[Math.floor(leaves.length/2)], c=leaves[leaves.length-1];
+    const d1=ultrametricDist(a,b), d2=ultrametricDist(b,c), d3=ultrametricDist(a,c);
+    const sorted = [d1,d2,d3].sort((x,y)=>y-x);
+    check("Triadic rigidity: 2 largest equal", () => Math.abs(sorted[0]-sorted[1])<1e-10?true:`${sorted.map(d=>d.toExponential(2))}`);
+  }
+
+  check("Tree size", () => { const e=(Math.pow(S.p,S.d+1)-1)/(S.p-1); return S.tree.length===e?true:`Exp ${e}, got ${S.tree.length}`; });
+
+  let pass=0,fail=0; results.forEach(r=>r.status==="PASS"?pass++:fail++);
+  showToast(`Verification: ${pass}/${results.length} passed`);
+  console.table(results);
+  return {total:results.length,passed:pass,failed:fail,results};
+}
+
+function rebuild() {
+  S.tree = buildTree(S.p, S.d);
+  assignWeights();
+  S.selA = null; S.selB = null;
+  computeDistances();
+  renderTree(); renderChart(); updateReadouts();
+  logState();
+}
+
+function logState() {
+  console.log("[QWAV-A4]", JSON.stringify({p:S.p,d:S.d,seed:S.seed,nodes:S.tree.length,leaves:S.tree.filter(n=>n.leaf).length}));
+}
+
+function showToast(msg) { const t = document.getElementById("toast"); t.textContent=msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),3000); }
+
+const TOUR = [
+  { title: "What This Shows", body: "This demo compares three ways to measure distance on a tree. Cophenetic distance counts edges to the common ancestor. Euclidean distance uses coordinates. Ultrametric distance is p^(-depth) — it satisfies the strong triangle inequality." },
+  { title: "Pick Two Leaves", body: "Click 🎲 Random Pair to select two random leaves (cyan A and amber B). Their distances appear in the readout panel. The green ring shows their lowest common ancestor (LCA)." },
+  { title: "Triadic Rigidity", body: "Among any three points in an ultrametric space, the two largest distances are always equal. This counter-intuitive property is guaranteed by the tree geometry. Try the math verification to test it." },
+  { title: "Explore", body: "Change p and d to see how tree structure affects distances. Higher p means more leaves — harder to find close pairs. Click Verify to run mathematical checks." },
+];
+let ts=0;
+function startTour(){ts=0;showTourStep();}
+function showTourStep(){
+  if(ts>=TOUR.length){document.getElementById("tourOverlay").classList.remove("active");localStorage.setItem("qwav-a4-tour-done","1");return;}
+  document.getElementById("tourOverlay").classList.add("active");
+  document.getElementById("tourTitle").textContent=TOUR[ts].title;
+  document.getElementById("tourBody").textContent=TOUR[ts].body;
+  document.getElementById("tourDots").innerHTML=TOUR.map((_,i)=>`<div class="step-dot${i===ts?' active':''}"></div>`).join("");
+  document.getElementById("tourNext").textContent=ts===TOUR.length-1?"Got it!":"Next →";
+}
+function nextTour(){ts++;showTourStep();}
+function skipTour(){document.getElementById("tourOverlay").classList.remove("active");localStorage.setItem("qwav-a4-tour-done","1");}
+
+// Events
+document.getElementById("pSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;S.p=parseInt(b.dataset.p);document.querySelectorAll("#pSeg button").forEach(x=>x.classList.toggle("active",x===b));rebuild();});
+document.getElementById("dSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;S.d=parseInt(b.dataset.d);document.querySelectorAll("#dSeg button").forEach(x=>x.classList.toggle("active",x===b));rebuild();});
+document.getElementById("randomBtn").addEventListener("click",randomPair);
+document.getElementById("resetBtn").addEventListener("click",()=>{S.p=3;S.d=4;S.seed=42;rng=mulberry32(42);document.getElementById("seedInput").value=42;document.querySelector("#pSeg button[data-p='3']").classList.add("active");document.querySelector("#dSeg button[data-d='4']").classList.add("active");rebuild();randomPair();showToast("Reset");});
+document.getElementById("verifyBtn").addEventListener("click",verifyMath);
+document.getElementById("reseedBtn").addEventListener("click",()=>{S.seed=parseInt(document.getElementById("seedInput").value)||42;rng=mulberry32(S.seed);rebuild();showToast("Seed: "+S.seed);});
+document.getElementById("tourTrigger").addEventListener("click",e=>{e.preventDefault();startTour();});
+document.getElementById("tourNext").addEventListener("click",nextTour);
+document.getElementById("tourSkip").addEventListener("click",skipTour);
+
+// Canvas click
+document.getElementById("treeCanvas").addEventListener("click", e => {
+  const rect = e.target.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  const leaves = S.tree.filter(n => n.leaf);
+  const leafSpacing = (rect.width-40) / (leaves.length+1);
+  const plotH = rect.height-44;
+  leaves.forEach((n, i) => {
+    const x = 20+(i+1)*leafSpacing, y = 24+plotH;
+    const dist = Math.sqrt((mx-x)*(mx-x)+(my-y)*(my-y));
+    if (dist < 20) {
+      if (!S.selA) { S.selA = n; } else if (!S.selB) { S.selB = n; } else { S.selA = n; S.selB = null; }
+      computeDistances();
+      renderTree(); renderChart(); updateReadouts();
+    }
+  });
+});
+
+window.addEventListener("resize", () => { renderTree(); renderChart(); });
+
+function init() {
+  rebuild();
+  randomPair();
+  if (!localStorage.getItem("qwav-a4-tour-done")) setTimeout(startTour, 800);
+}
+init();
+window.__qwavMathVerify = { verifyAll: verifyMath, copheneticDist, ultrametricDist, euclideanDist, S };
+</script>
+</body>
+</html>
